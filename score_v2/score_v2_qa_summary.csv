@@ -1,0 +1,10 @@
+metric,value
+scheduled_consumer_routes,64.0
+unique_us_origins,19.0
+unique_japan_destinations,4.0
+unique_carriers,8.0
+very_high_confidence,21.0
+high_confidence,38.0
+median_score,77.8
+min_score,47.3
+max_score,92.0

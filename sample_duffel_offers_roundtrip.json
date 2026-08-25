@@ -1,0 +1,418 @@
+{
+  "data": {
+    "offers": [
+      {
+        "id": "off_demo_atl_dl_direct",
+        "total_amount": "2185.0",
+        "total_currency": "USD",
+        "slices": [
+          {
+            "origin": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "destination": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "duration": "PT14H20M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "departing_at": "2026-10-10T10:05:00-04:00",
+                "arriving_at": "2026-10-11T13:25:00+09:00",
+                "operating_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                }
+              }
+            ]
+          },
+          {
+            "origin": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "destination": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "duration": "PT13H50M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "destination": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T17:20:00+09:00",
+                "arriving_at": "2026-10-20T16:10:00-04:00",
+                "operating_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "off_demo_atl_lax_nh",
+        "total_amount": "2035.0",
+        "total_currency": "USD",
+        "slices": [
+          {
+            "origin": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "destination": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "duration": "PT18H10M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "LAX",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-10T07:00:00-04:00",
+                "arriving_at": "2026-10-10T08:45:00-07:00",
+                "operating_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "LAX",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "departing_at": "2026-10-10T11:30:00-07:00",
+                "arriving_at": "2026-10-11T15:25:00+09:00",
+                "operating_carrier": {
+                  "iata_code": "NH",
+                  "name": "All Nippon Airways"
+                },
+                "marketing_carrier": {
+                  "iata_code": "NH",
+                  "name": "All Nippon Airways"
+                }
+              }
+            ]
+          },
+          {
+            "origin": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "destination": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "duration": "PT17H50M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "destination": {
+                  "iata_code": "LAX",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T16:30:00+09:00",
+                "arriving_at": "2026-10-20T10:00:00-07:00",
+                "operating_carrier": {
+                  "iata_code": "NH",
+                  "name": "All Nippon Airways"
+                },
+                "marketing_carrier": {
+                  "iata_code": "NH",
+                  "name": "All Nippon Airways"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "LAX",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T13:00:00-07:00",
+                "arriving_at": "2026-10-20T20:20:00-04:00",
+                "operating_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "DL",
+                  "name": "Delta Air Lines"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "off_demo_atl_ord_ua",
+        "total_amount": "2095.0",
+        "total_currency": "USD",
+        "slices": [
+          {
+            "origin": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "destination": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "duration": "PT17H35M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "ORD",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-10T06:30:00-04:00",
+                "arriving_at": "2026-10-10T07:40:00-05:00",
+                "operating_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "ORD",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "departing_at": "2026-10-10T10:20:00-05:00",
+                "arriving_at": "2026-10-11T14:10:00+09:00",
+                "operating_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                }
+              }
+            ]
+          },
+          {
+            "origin": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "destination": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "duration": "PT17H50M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "destination": {
+                  "iata_code": "ORD",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T16:30:00+09:00",
+                "arriving_at": "2026-10-20T12:00:00-05:00",
+                "operating_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "ORD",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T15:00:00-05:00",
+                "arriving_at": "2026-10-20T17:50:00-04:00",
+                "operating_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "UA",
+                  "name": "United Airlines"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "off_demo_atl_dfw_jl",
+        "total_amount": "2145.0",
+        "total_currency": "USD",
+        "slices": [
+          {
+            "origin": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "destination": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "duration": "PT18H30M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "DFW",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-10T06:10:00-04:00",
+                "arriving_at": "2026-10-10T07:35:00-05:00",
+                "operating_carrier": {
+                  "iata_code": "AA",
+                  "name": "American Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "AA",
+                  "name": "American Airlines"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "DFW",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "departing_at": "2026-10-10T11:05:00-05:00",
+                "arriving_at": "2026-10-11T15:25:00+09:00",
+                "operating_carrier": {
+                  "iata_code": "JL",
+                  "name": "Japan Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "JL",
+                  "name": "Japan Airlines"
+                }
+              }
+            ]
+          },
+          {
+            "origin": {
+              "iata_code": "HND",
+              "iata_country_code": "JP"
+            },
+            "destination": {
+              "iata_code": "ATL",
+              "iata_country_code": "US"
+            },
+            "duration": "PT17H50M",
+            "segments": [
+              {
+                "origin": {
+                  "iata_code": "HND",
+                  "iata_country_code": "JP"
+                },
+                "destination": {
+                  "iata_code": "DFW",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T16:30:00+09:00",
+                "arriving_at": "2026-10-20T12:00:00-05:00",
+                "operating_carrier": {
+                  "iata_code": "JL",
+                  "name": "Japan Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "JL",
+                  "name": "Japan Airlines"
+                }
+              },
+              {
+                "origin": {
+                  "iata_code": "DFW",
+                  "iata_country_code": "US"
+                },
+                "destination": {
+                  "iata_code": "ATL",
+                  "iata_country_code": "US"
+                },
+                "departing_at": "2026-10-20T15:00:00-05:00",
+                "arriving_at": "2026-10-20T17:50:00-04:00",
+                "operating_carrier": {
+                  "iata_code": "AA",
+                  "name": "American Airlines"
+                },
+                "marketing_carrier": {
+                  "iata_code": "AA",
+                  "name": "American Airlines"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
