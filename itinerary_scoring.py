@@ -246,6 +246,41 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
 
     df = pd.DataFrame(rows)
     if not df.empty:
-        df = df.sort_values(["flightsmart_live_score", "total_amount"], ascending=[False, True]).reset_index(drop=True)
-        df.insert(0, "rank", range(1, len(df) + 1))
+        # Step 17: the primary FlightSmart ranking is backed by airline/route-specific
+        # historical evidence. Market medians are still useful context, but they are
+        # not evidence for the individual airline and therefore cannot earn a rank.
+        carrier_backed_types = {"EXACT_OPERATING_CARRIER", "MARKETING_CARRIER_FALLBACK"}
+        df["historical_is_carrier_backed"] = df["historical_match_type"].isin(carrier_backed_types) & df["historical_score"].notna()
+
+        confidence_order = {"VERY_HIGH": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "LIMITED": 4, "UNAVAILABLE": 5}
+        df["historical_confidence_order"] = (
+            df["historical_data_confidence"].astype(str).str.upper().map(confidence_order).fillna(5).astype(int)
+        )
+        # Only individual-airline/route matches participate in the numbered ranking.
+        df["is_ranked_choice"] = df["historical_is_carrier_backed"]
+
+        # The past-record rank is driven by the BTS historical rating among offers
+        # that have airline/route-specific evidence. Evidence confidence is the next
+        # discriminator, followed by live itinerary quality only as a tie-breaker.
+        # This keeps strong historical performance visible without allowing an
+        # unbacked market median to outrank carrier-specific records.
+        df = df.sort_values(
+            ["historical_is_carrier_backed", "historical_score", "historical_confidence_order", "flightsmart_live_score", "total_amount"],
+            ascending=[False, False, True, False, True],
+            na_position="last",
+        ).reset_index(drop=True)
+
+        ranked_numbers = []
+        evidence_numbers = []
+        n = 0
+        for eligible in df["is_ranked_choice"]:
+            if bool(eligible):
+                n += 1
+                ranked_numbers.append(n)
+                evidence_numbers.append(n)
+            else:
+                ranked_numbers.append(pd.NA)
+                evidence_numbers.append(pd.NA)
+        df.insert(0, "rank", pd.array(ranked_numbers, dtype="Int64"))
+        df.insert(1, "historical_evidence_rank", pd.array(evidence_numbers, dtype="Int64"))
     return df

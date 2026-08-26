@@ -32,3 +32,10 @@
 - Added a Japanese-first “このアプリを作った理由 / Why I made FlightSmart” section at the top of the app.
 - Explains the family travel experience that motivated FlightSmart, including traveling with two children and past cancellations/delays.
 - Clarifies that BTS historical records are supporting decision evidence, not future-flight predictions or guarantees.
+
+## Step 17 — Past-Records-First Ranking
+- Added visible BTS past-record ranking table.
+- Limited numbered rankings to airline/route-specific BTS matches.
+- Market median and unavailable history are now unranked context/reference options.
+- Made BTS historical rating the primary rank driver, with evidence confidence and live itinerary score used as secondary tie-breakers.
+- Promoted BTS past-record rank and rating on each result card.

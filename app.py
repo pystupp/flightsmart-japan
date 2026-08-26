@@ -85,7 +85,7 @@ def duration_label(minutes, lang: str) -> str:
 
 
 def confidence_label(value: str, lang: str) -> str:
-    mapping_ja={"VERY_HIGH":"非常に高い","HIGH":"高い","MEDIUM":"中程度","LIMITED":"限定的","UNAVAILABLE":"データなし"}
+    mapping_ja={"VERY_HIGH":"非常に高い","HIGH":"高い","MEDIUM":"中程度","LOW":"低い","LIMITED":"限定的","UNAVAILABLE":"データなし"}
     return mapping_ja.get(str(value),str(value)) if lang=="日本語" else str(value).replace("_"," ").title()
 
 
@@ -236,9 +236,25 @@ def show_travel_context(d: date, lang: str, title: str) -> None:
 
 
 def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
-    rank=int(row["rank"]); carrier=row.get("operating_carrier_name") or row.get("operating_carrier_code") or "—"; score=float(row["flightsmart_live_score"])
+    carrier=row.get("operating_carrier_name") or row.get("operating_carrier_code") or "—"; score=float(row["flightsmart_live_score"])
+    rank_value=row.get("rank")
+    is_ranked=bool(row.get("is_ranked_choice", True)) and pd.notna(rank_value)
     with st.container(border=True):
-        st.subheader(f"{'🏆 ' if is_top else ''}#{rank} {carrier} — {score:.1f}/100")
+        if is_ranked:
+            rank=int(rank_value)
+            hist=row.get("historical_score")
+            hist_txt="—" if pd.isna(hist) else f"{float(hist):.1f}/100"
+            st.subheader(tr(
+                f"{'🏆 ' if is_top else ''}BTS過去実績 #{rank}　{carrier} — {hist_txt}",
+                f"{'🏆 ' if is_top else ''}BTS past-record rank #{rank}  {carrier} — {hist_txt}", lang))
+            st.caption(tr(
+                f"FlightSmart総合比較スコア：{score:.1f}/100（料金・時間・乗り継ぎを含む）",
+                f"FlightSmart overall comparison score: {score:.1f}/100 (includes price, duration, and connections)", lang))
+        else:
+            st.subheader(f"⚠️ {carrier} — {tr('参考候補','Reference option',lang)}")
+            st.warning(tr(
+                "BTSの過去実績を確認できないため、FlightSmartの総合ランキングには含めていません。料金・所要時間・乗り継ぎは参考として比較できます。",
+                "BTS historical evidence is unavailable, so this itinerary is not included in the FlightSmart overall ranking. Price, duration, and connections are still shown for reference.", lang))
         st.markdown(f"**{tr('運航航空会社','Operating carrier',lang)}:** {carrier}")
         marketing=row.get("marketing_carrier_name") or row.get("marketing_carrier_code")
         if marketing and str(marketing) != str(carrier):
@@ -248,7 +264,7 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         c1.metric(tr("料金","Price",lang),money(row.get("total_currency"),row.get("total_amount")))
         c2.metric(tr("合計乗り継ぎ","Total connections",lang),int(row.get("stop_count",0)))
         c3.metric(tr("合計飛行旅程時間","Total itinerary duration",lang),duration_label(row.get("total_duration_min"),lang))
-        c4.metric(tr("履歴データ信頼度","Historical confidence",lang),confidence_label(row.get("historical_data_confidence"),lang))
+        c4.metric(tr("BTSデータ信頼度","BTS evidence confidence",lang),confidence_label(row.get("historical_data_confidence"),lang))
         if row.get("trip_type")=="round_trip":
             st.caption(tr(
                 f"往路：乗り継ぎ{int(row.get('outbound_stop_count',0))}回・{duration_label(row.get('outbound_duration_min'),lang)} / 復路：乗り継ぎ{int(row.get('return_stop_count') or 0)}回・{duration_label(row.get('return_duration_min'),lang)}",
@@ -257,7 +273,10 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         if pd.notna(remaining) and remaining is not None:
             if int(remaining)<=5: st.error(tr(f"このオファーは約{int(remaining)}分で期限切れになります。",f"This offer expires in about {int(remaining)} minutes.",lang))
             else: st.caption(tr(f"ライブオファー有効時間：約{int(remaining)}分",f"Live offer validity: about {int(remaining)} minutes remaining",lang))
-        st.progress(max(0.0,min(1.0,score/100.0)),text=tr("FlightSmart 総合スコア","FlightSmart overall score",lang))
+        if is_ranked:
+            st.progress(max(0.0,min(1.0,score/100.0)),text=tr("FlightSmart 総合スコア","FlightSmart overall score",lang))
+        else:
+            st.progress(max(0.0,min(1.0,score/100.0)),text=tr("料金・時間・乗り継ぎの参考評価","Live price/time/connection reference score",lang))
         d1,d2,d3,d4=st.columns(4); hist=row.get("historical_score")
         d1.metric(tr("BTS履歴評価","BTS historical rating",lang),"—" if pd.isna(hist) else f"{float(hist):.1f}/100")
         d2.metric(tr("乗り継ぎやすさ","Connection",lang),f"{float(row['connection_score']):.1f}")
@@ -369,7 +388,8 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
 
     cheapest=ranked.sort_values("total_amount",na_position="last").iloc[0]
     quickest=ranked.sort_values("total_duration_min",na_position="last").iloc[0]
-    best=ranked.iloc[0]
+    ranked_choices=ranked[ranked.get("is_ranked_choice", True) == True] if "is_ranked_choice" in ranked.columns else ranked
+    best=ranked_choices.iloc[0] if not ranked_choices.empty else ranked.iloc[0]
     c1,c2,c3=st.columns(3)
     with c1:
         with st.container(border=True):
@@ -383,9 +403,41 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
 
     st.markdown('<div class="fs-reco">',unsafe_allow_html=True)
     st.markdown("### ⭐ "+tr("FlightSmartのおすすめ","FlightSmart recommendation",lang))
-    st.markdown(f"**{best.get('operating_carrier_name') or '—'}**　{money(best.get('total_currency'),best.get('total_amount'))}　·　{duration_label(best.get('total_duration_min'),lang)}　·　**{float(best['flightsmart_live_score']):.1f}/100**")
+    best_hist = best.get("historical_score")
+    best_rank = best.get("historical_evidence_rank")
+    best_hist_text = "—" if pd.isna(best_hist) else f"{float(best_hist):.1f}/100"
+    rank_text = "—" if pd.isna(best_rank) else f"#{int(best_rank)}"
+    st.markdown(tr(
+        f"**{best.get('operating_carrier_name') or '—'}**　{money(best.get('total_currency'),best.get('total_amount'))}　·　{duration_label(best.get('total_duration_min'),lang)}　·　**BTS過去実績 {rank_text} / {best_hist_text}**",
+        f"**{best.get('operating_carrier_name') or '—'}**  {money(best.get('total_currency'),best.get('total_amount'))} · {duration_label(best.get('total_duration_min'),lang)} · **BTS past records {rank_text} / {best_hist_text}**", lang))
     st.write(best["explanation_ja"] if lang=="日本語" else best["explanation_en"])
     st.markdown('</div>',unsafe_allow_html=True)
+
+    # Past-record ranking is intentionally separate and highly visible. Only offers
+    # with airline/route-specific BTS matches appear here; market medians and missing
+    # history are excluded from the numbered evidence ranking.
+    st.markdown('<div class="fs-section-title">📊 BTS過去実績ランキング / BTS past-record ranking</div>', unsafe_allow_html=True)
+    st.caption(tr(
+        "この順位は、各航空会社・日米ルートに一致するBTSの過去実績が確認できた候補だけを比較します。BTS履歴評価を中心に順位付けし、同程度の場合はデータ信頼度を優先します。航空会社固有の履歴がない候補は順位を付けません。",
+        "This ranking includes only offers with BTS history matched to the specific airline and U.S.–Japan route. The BTS historical rating drives the rank; evidence confidence breaks close/tied comparisons. Offers without carrier-specific history receive no past-record rank.", lang))
+    evidence_ranked = ranked[ranked.get("is_ranked_choice", False) == True].copy() if "is_ranked_choice" in ranked.columns else ranked.iloc[0:0].copy()
+    if not evidence_ranked.empty:
+        ev_rows=[]
+        for _, er in evidence_ranked.head(8).iterrows():
+            ev_rows.append({
+                tr("過去実績順位","Past-record rank",lang): f"#{int(er['historical_evidence_rank'])}" if pd.notna(er.get('historical_evidence_rank')) else "—",
+                tr("航空会社","Airline",lang): er.get("operating_carrier_name") or er.get("operating_carrier_code") or "—",
+                tr("日米区間","U.S.–Japan segment",lang): f"{er.get('international_gateway') or '?'}→{er.get('japan_arrival_airport') or er.get('destination') or '?'}",
+                tr("BTS履歴評価","BTS historical rating",lang): "—" if pd.isna(er.get("historical_score")) else f"{float(er.get('historical_score')):.1f}/100",
+                tr("データ信頼度","Evidence confidence",lang): confidence_label(er.get("historical_data_confidence"),lang),
+                tr("確認月数","Months observed",lang): "—" if pd.isna(er.get("historical_months_reported")) else int(er.get("historical_months_reported")),
+                tr("過去旅客数","Historical passengers",lang): "—" if pd.isna(er.get("historical_passengers")) else f"{int(er.get('historical_passengers')):,}",
+            })
+        st.dataframe(pd.DataFrame(ev_rows), hide_index=True, use_container_width=True)
+    else:
+        st.warning(tr(
+            "今回の検索では、航空会社・ルートまで一致するBTS過去実績を確認できる候補がありません。料金や時間の候補は表示しますが、過去実績ランキングは作成しません。",
+            "No returned offer has BTS history matched to both the airline and route. Flight options can still be shown by price and schedule, but FlightSmart will not create a past-record ranking for this search.", lang))
 
     # Flexible-date comparison is intentionally opt-in: it creates several live Duffel searches.
     if meta and meta.get("trip")=="round_trip":
