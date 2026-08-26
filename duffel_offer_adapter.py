@@ -96,6 +96,9 @@ class LiveItineraryFacts:
     operating_carrier_name: str | None
     marketing_carrier_code: str | None
     marketing_carrier_name: str | None
+    offer_owner_code: str | None
+    offer_owner_name: str | None
+    offer_live_mode: bool | None
     international_departure_at: str | None
     international_arrival_at: str | None
     connection_minutes: list[int]
@@ -124,6 +127,7 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
     if intl_seg is None and out_segments: intl_seg=out_segments[-1]
     intl_seg=intl_seg or {}
     op_code,op_name=_carrier(intl_seg.get("operating_carrier")); mk_code,mk_name=_carrier(intl_seg.get("marketing_carrier"))
+    owner_code,owner_name=_carrier(offer.get("owner"))
 
     out_duration=_slice_duration(outbound)
     ret_duration=_slice_duration(inbound) if inbound else None
@@ -159,6 +163,7 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
         total_duration_min=total_duration,outbound_duration_min=out_duration,return_duration_min=ret_duration,
         international_gateway=_iata(intl_seg.get("origin")),japan_arrival_airport=_iata(intl_seg.get("destination")),
         operating_carrier_code=op_code,operating_carrier_name=op_name,marketing_carrier_code=mk_code,marketing_carrier_name=mk_name,
+        offer_owner_code=owner_code,offer_owner_name=owner_name,offer_live_mode=offer.get("live_mode"),
         international_departure_at=intl_seg.get("departing_at"),international_arrival_at=intl_seg.get("arriving_at"),
         connection_minutes=layovers,segment_summary=combined,outbound_summary=out_summary,return_summary=ret_summary,
     )

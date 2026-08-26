@@ -30,6 +30,22 @@ def match_historical_evidence(facts: dict[str, Any], route_scores: pd.DataFrame)
     op = (facts.get("operating_carrier_code") or "").upper()
     mk = (facts.get("marketing_carrier_code") or "").upper()
 
+    # Duffel Airways (ZZ) is a synthetic sandbox airline. Never attach BTS carrier
+    # history to it or imply that its test offers represent a real airline.
+    if op == "ZZ" or str(facts.get("operating_carrier_name") or "").lower() == "duffel airways":
+        return {
+            "historical_score": None,
+            "historical_match_type": "TEST_AIRLINE_NO_BTS_MATCH",
+            "historical_data_confidence": "UNAVAILABLE",
+            "historical_recommendation_band": "TEST_ONLY",
+            "historical_carrier_code": None,
+            "historical_carrier_name": None,
+            "historical_reason_en": "Duffel Airways is a synthetic test-mode airline, so FlightSmart does not attach BTS historical airline evidence to it.",
+            "historical_reason_ja": "Duffel Airwaysはテストモード用の架空航空会社のため、FlightSmartではBTSの航空会社別履歴実績を紐づけません。",
+            "historical_passengers": None,
+            "historical_months_reported": None,
+        }
+
     exact = route_scores[(route_scores.ORIGIN == gateway) & (route_scores.DEST == dest) & (route_scores.UNIQUE_CARRIER == op)]
     match_type = "EXACT_OPERATING_CARRIER"
     matched_code = op

@@ -11,6 +11,7 @@ import streamlit as st
 from airport_catalog import airport_options
 from duffel_client import create_offer_request
 from duffel_offer_adapter import extract_offers
+from airline_coverage import summarize_airline_coverage
 from itinerary_scoring import evaluate_offers
 from traveler_profiles import DEFAULT_PROFILE, PROFILES
 from travel_calendar import travel_context, highest_level
@@ -98,6 +99,9 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
     with st.container(border=True):
         st.subheader(f"{'🏆 ' if is_top else ''}#{rank} {carrier} — {score:.1f}/100")
         st.markdown(f"**{tr('運航航空会社','Operating carrier',lang)}:** {carrier}")
+        marketing=row.get("marketing_carrier_name") or row.get("marketing_carrier_code")
+        if marketing and str(marketing) != str(carrier):
+            st.caption(f"{tr('販売航空会社','Marketing carrier',lang)}: {marketing}")
         st.caption(row.get("segment_summary") or "—")
         c1,c2,c3,c4=st.columns(4)
         c1.metric(tr("料金","Price",lang),money(row.get("total_currency"),row.get("total_amount")))
@@ -177,7 +181,26 @@ if search:
                 if not token:
                     st.error(tr("Duffelトークンが設定されていません。DUFFEL_ACCESS_TOKENを設定するか、デモモードを選んでください。","No Duffel token is configured. Set DUFFEL_ACCESS_TOKEN or use Demo mode.",lang)); st.stop()
                 payload=create_offer_request(origin=origin,destination=destination,departure_date=depart_date.isoformat(),return_date=return_date.isoformat() if return_date else None,passenger_ages=passenger_ages,cabin_class=cabin,max_connections=int(max_conn),token=token)
-            offers=extract_offers(payload); ranked=evaluate_offers(offers,profile_key=profile)
+            offers=extract_offers(payload)
+            coverage=summarize_airline_coverage(offers)
+            ranked=evaluate_offers(offers,profile_key=profile)
+        if coverage.get("is_test_mode"):
+            st.warning(tr(
+                "🧪 現在のDuffel検索はテストモードです。Duffel Airwaysなどのサンドボックス結果は実際の航空会社在庫・料金を表しません。ANA/JALが表示されなくても、FlightSmartが除外しているという意味ではありません。実際の航空会社在庫を確認するにはDuffelのライブモードが必要です。",
+                "🧪 This Duffel search is running in test mode. Sandbox results such as Duffel Airways do not represent real airline inventory or prices. If ANA/JAL are absent, that does not mean FlightSmart filtered them out. Duffel live mode is required to evaluate real airline availability.",lang))
+        with st.expander(tr("ライブ検索の航空会社カバレッジ","Live-search airline coverage",lang),expanded=coverage.get("is_test_mode",False)):
+            st.caption(tr(f"Duffelから返された候補：{coverage['offer_count']}件",f"Offers returned by Duffel: {coverage['offer_count']}",lang))
+            op_counts=coverage.get("operating_counts",{})
+            if op_counts:
+                st.write(tr("運航航空会社別","By operating carrier",lang),op_counts)
+            jp=coverage.get("japanese_status",{})
+            status_bits=[]
+            for code,info in jp.items():
+                mark="✅" if info.get("present") else "—"
+                status_bits.append(f"{mark} {info.get('label')} ({code})")
+            st.write(tr("日本系航空会社の返却状況","Japanese-carrier return status",lang)+": "+" · ".join(status_bits))
+            if not any(info.get("present") for info in jp.values()):
+                st.info(tr("ANA/JAL/ZIPAIRは今回Duffelから返された候補に含まれていません。FlightSmartのランキング処理で削除されたわけではありません。","ANA/JAL/ZIPAIR were not present in the offers returned by Duffel for this search. They were not removed by FlightSmart ranking logic.",lang))
         if ranked.empty: st.warning(tr("条件に一致する候補便が見つかりませんでした。","No matching offers were returned.",lang))
         else:
             st.success(tr(f"{len(ranked)}件の候補便を分析しました。",f"Analyzed {len(ranked)} flight offers.",lang))
