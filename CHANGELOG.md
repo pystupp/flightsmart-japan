@@ -39,3 +39,10 @@
 - Market median and unavailable history are now unranked context/reference options.
 - Made BTS historical rating the primary rank driver, with evidence confidence and live itinerary score used as secondary tie-breakers.
 - Promoted BTS past-record rank and rating on each result card.
+
+## Step 18 — Confidence-First Ranking
+- Made BTS historical confidence the primary ranking key.
+- Only Medium/High/Very High carrier-specific evidence can receive numbered ranks.
+- Low/Limited/Unavailable results are shown as reference options without rank numbers.
+- Exact operating-carrier matches outrank marketing-carrier fallbacks when confidence is equal.
+- Historical rating, observed months, and passenger evidence are used after confidence/match quality.

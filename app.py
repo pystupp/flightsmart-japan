@@ -253,8 +253,8 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         else:
             st.subheader(f"⚠️ {carrier} — {tr('参考候補','Reference option',lang)}")
             st.warning(tr(
-                "BTSの過去実績を確認できないため、FlightSmartの総合ランキングには含めていません。料金・所要時間・乗り継ぎは参考として比較できます。",
-                "BTS historical evidence is unavailable, so this itinerary is not included in the FlightSmart overall ranking. Price, duration, and connections are still shown for reference.", lang))
+                "BTSの航空会社別履歴データが不足している、または信頼度が低いため、番号付きの過去実績ランキングには含めていません。料金・所要時間・乗り継ぎは参考として比較できます。",
+                "Carrier-specific BTS history is unavailable or not reliable enough for a numbered past-record rank. Price, duration, and connections are still shown for reference.", lang))
         st.markdown(f"**{tr('運航航空会社','Operating carrier',lang)}:** {carrier}")
         marketing=row.get("marketing_carrier_name") or row.get("marketing_carrier_code")
         if marketing and str(marketing) != str(carrier):
@@ -417,9 +417,12 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
     # with airline/route-specific BTS matches appear here; market medians and missing
     # history are excluded from the numbered evidence ranking.
     st.markdown('<div class="fs-section-title">📊 BTS過去実績ランキング / BTS past-record ranking</div>', unsafe_allow_html=True)
+    st.info(tr(
+        "ランキング優先順：① 履歴データ信頼度（Very High → High → Medium） ② 航空会社・路線の一致精度 ③ BTS履歴評価。Low / Limited / Unavailable は番号付き順位を付けません。",
+        "Ranking priority: (1) historical confidence (Very High → High → Medium), (2) airline/route match quality, then (3) BTS historical rating. Low / Limited / Unavailable evidence receives no numbered rank.", lang))
     st.caption(tr(
         "この順位は、各航空会社・日米ルートに一致するBTSの過去実績が確認できた候補だけを比較します。BTS履歴評価を中心に順位付けし、同程度の場合はデータ信頼度を優先します。航空会社固有の履歴がない候補は順位を付けません。",
-        "This ranking includes only offers with BTS history matched to the specific airline and U.S.–Japan route. The BTS historical rating drives the rank; evidence confidence breaks close/tied comparisons. Offers without carrier-specific history receive no past-record rank.", lang))
+        "This ranking includes only airline/route-specific BTS evidence with Medium, High, or Very High confidence. Historical confidence is the first ranking key, followed by match quality and the BTS historical rating. Low, Limited, or Unavailable evidence receives no numbered rank.", lang))
     evidence_ranked = ranked[ranked.get("is_ranked_choice", False) == True].copy() if "is_ranked_choice" in ranked.columns else ranked.iloc[0:0].copy()
     if not evidence_ranked.empty:
         ev_rows=[]
@@ -437,7 +440,7 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
     else:
         st.warning(tr(
             "今回の検索では、航空会社・ルートまで一致するBTS過去実績を確認できる候補がありません。料金や時間の候補は表示しますが、過去実績ランキングは作成しません。",
-            "No returned offer has BTS history matched to both the airline and route. Flight options can still be shown by price and schedule, but FlightSmart will not create a past-record ranking for this search.", lang))
+            "No returned offer has sufficiently reliable airline/route-specific BTS history (Medium confidence or better). Flight options can still be shown by price and schedule, but FlightSmart will not create a numbered past-record ranking for this search.", lang))
 
     # Flexible-date comparison is intentionally opt-in: it creates several live Duffel searches.
     if meta and meta.get("trip")=="round_trip":

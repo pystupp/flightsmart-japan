@@ -246,9 +246,11 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
 
     df = pd.DataFrame(rows)
     if not df.empty:
-        # Step 17: the primary FlightSmart ranking is backed by airline/route-specific
-        # historical evidence. Market medians are still useful context, but they are
-        # not evidence for the individual airline and therefore cannot earn a rank.
+        # Step 18: reliability-first ranking.
+        # A high historical score is only meaningful when the evidence behind it is
+        # sufficiently reliable. Confidence is therefore the FIRST ranking key.
+        # Market medians and weak/unavailable matches remain visible as reference
+        # choices, but they cannot receive a numbered FlightSmart past-record rank.
         carrier_backed_types = {"EXACT_OPERATING_CARRIER", "MARKETING_CARRIER_FALLBACK"}
         df["historical_is_carrier_backed"] = df["historical_match_type"].isin(carrier_backed_types) & df["historical_score"].notna()
 
@@ -256,17 +258,31 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
         df["historical_confidence_order"] = (
             df["historical_data_confidence"].astype(str).str.upper().map(confidence_order).fillna(5).astype(int)
         )
-        # Only individual-airline/route matches participate in the numbered ranking.
-        df["is_ranked_choice"] = df["historical_is_carrier_backed"]
+        # Only Medium-or-better carrier-specific evidence can earn a numbered rank.
+        # LOW/LIMITED/UNAVAILABLE are not treated as bad performance; they simply do
+        # not provide enough evidence for a confident historical ranking.
+        df["historical_confidence_eligible"] = df["historical_data_confidence"].astype(str).str.upper().isin({"VERY_HIGH", "HIGH", "MEDIUM"})
+        df["is_ranked_choice"] = df["historical_is_carrier_backed"] & df["historical_confidence_eligible"]
 
-        # The past-record rank is driven by the BTS historical rating among offers
-        # that have airline/route-specific evidence. Evidence confidence is the next
-        # discriminator, followed by live itinerary quality only as a tie-breaker.
-        # This keeps strong historical performance visible without allowing an
-        # unbacked market median to outrank carrier-specific records.
+        # Prefer a direct operating-carrier BTS match over a marketing-carrier
+        # fallback when confidence is otherwise equal.
+        match_quality_order = {"EXACT_OPERATING_CARRIER": 0, "MARKETING_CARRIER_FALLBACK": 1}
+        df["historical_match_quality_order"] = (
+            df["historical_match_type"].map(match_quality_order).fillna(9).astype(int)
+        )
+
+        # Ranking hierarchy (most important first):
+        # 1) eligible evidence, 2) historical confidence, 3) match quality,
+        # 4) BTS historical rating, 5) depth of observed history,
+        # 6) live itinerary quality only as a final tie-breaker.
+        # This prevents a 95-point LOW-confidence record from outranking a
+        # 79-point HIGH-confidence JAL/ANA/etc. record simply because the raw
+        # score is larger.
         df = df.sort_values(
-            ["historical_is_carrier_backed", "historical_score", "historical_confidence_order", "flightsmart_live_score", "total_amount"],
-            ascending=[False, False, True, False, True],
+            ["is_ranked_choice", "historical_confidence_order", "historical_match_quality_order",
+             "historical_score", "historical_months_reported", "historical_passengers",
+             "flightsmart_live_score", "total_amount"],
+            ascending=[False, True, True, False, False, False, False, True],
             na_position="last",
         ).reset_index(drop=True)
 
