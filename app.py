@@ -39,6 +39,9 @@ st.markdown("""
 .fs-kicker {font-size:.86rem; opacity:.75; letter-spacing:.04em; text-transform:uppercase;}
 .fs-title {font-size:2.15rem; font-weight:800; margin:.15rem 0 .35rem 0; color:#102a43;}
 .fs-sub {opacity:.82; line-height:1.55;}
+.fs-story {padding:1.15rem 1.35rem; border-left:4px solid #2f80ed; border-radius:14px; background:#f8fbff; margin:-.25rem 0 1rem; line-height:1.75;}
+.fs-story-title {font-size:1.05rem; font-weight:800; color:#102a43; margin-bottom:.35rem;}
+.fs-story-en {font-size:.88rem; color:#64748b; margin-top:.65rem; line-height:1.6;}
 @media (max-width: 700px) {
   .block-container {padding-left: .75rem; padding-right: .75rem;}
   .fs-title {font-size:1.55rem;}
@@ -86,29 +89,58 @@ def confidence_label(value: str, lang: str) -> str:
     return mapping_ja.get(str(value),str(value)) if lang=="日本語" else str(value).replace("_"," ").title()
 
 
+def evidence_strength_label(score_value, lang: str, *, kind: str = "general", raw_value=None) -> str:
+    """Convert existing evidence into an easy-to-read category without inventing a new numeric score."""
+    if score_value is not None and not pd.isna(score_value):
+        score = float(score_value)
+        if score >= 80:
+            return tr("🟢 良好", "🟢 Strong", lang)
+        if score >= 60:
+            return tr("🔵 参考になる", "🔵 Useful", lang)
+        if score >= 40:
+            return tr("🟡 中程度", "🟡 Moderate", lang)
+        return tr("⚪ 限定的", "⚪ Limited", lang)
+
+    # Descriptive BTS records are still useful even when they are not individually scored.
+    if kind == "service" and raw_value is not None and not pd.isna(raw_value):
+        months = int(raw_value)
+        if months >= 5:
+            return tr("✓ 継続実績あり", "✓ Consistent record", lang)
+        if months >= 3:
+            return tr("◯ 複数月の実績", "◯ Multi-month record", lang)
+        return tr("△ 限定的な実績", "△ Limited record", lang)
+    if kind == "passengers" and raw_value is not None and not pd.isna(raw_value):
+        passengers = int(raw_value)
+        if passengers >= 25000:
+            return tr("✓ 十分な実績データ", "✓ Substantial record", lang)
+        if passengers >= 10000:
+            return tr("◯ 一定の実績データ", "◯ Meaningful record", lang)
+        return tr("△ 参考データ", "△ Context only", lang)
+    return tr("参考データ", "Context", lang)
+
+
 def historical_evidence_table(row: pd.Series, lang: str) -> pd.DataFrame:
-    """Build a traveler-facing BTS evidence table from the matched historical route row."""
+    """Build a traveler-facing BTS table that separates scored and descriptive evidence."""
     rows = []
 
-    def add(ja_label: str, en_label: str, value: str, score_value):
-        score_text = "—" if score_value is None or pd.isna(score_value) else f"{float(score_value):.1f}/100"
+    def add(ja_label: str, en_label: str, value: str, score_value=None, *, kind: str = "general", raw_value=None):
         rows.append({
             tr("BTSの過去データ", "BTS historical evidence", lang): tr(ja_label, en_label, lang),
-            tr("実績", "Past record", lang): value,
-            tr("根拠スコア", "Evidence score", lang): score_text,
+            tr("確認できた実績", "Observed record", lang): value,
+            tr("評価", "Evidence strength", lang): evidence_strength_label(score_value, lang, kind=kind, raw_value=raw_value),
         })
 
     months = row.get("historical_months_reported")
     if pd.notna(months) and months is not None:
         add("日米路線の継続運航", "U.S.–Japan service consistency",
             tr(f"{int(months)}か月分の運航実績", f"{int(months)} reported months of service", lang),
-            row.get("historical_service_consistency_score"))
+            row.get("historical_service_consistency_score"), kind="service", raw_value=months)
 
     passengers = row.get("historical_passengers")
     if pd.notna(passengers) and passengers is not None:
         add("日米路線の旅客実績", "U.S.–Japan passenger evidence",
             tr(f"過去データ旅客数 {int(passengers):,}人", f"{int(passengers):,} passengers in the historical data", lang),
-            row.get("historical_passenger_evidence_score"))
+            row.get("historical_passenger_evidence_score"), kind="passengers", raw_value=passengers)
 
     dep = row.get("historical_on_time_departure_pct")
     canc = row.get("historical_gateway_cancellation_pct")
@@ -139,7 +171,7 @@ def historical_evidence_table(row: pd.Series, lang: str) -> pd.DataFrame:
     chronic = row.get("historical_chronic_risk_score")
     if pd.notna(chronic) and chronic is not None:
         add("慢性的な遅延シグナル", "Chronic-delay signal",
-            tr("高いほど慢性的遅延リスクが低い指標", "Higher score means a lower chronic-delay signal", lang), chronic)
+            tr("BTSの慢性的遅延記録をもとにした比較指標", "Comparison signal based on BTS chronic-delay records", lang), chronic)
 
     return pd.DataFrame(rows)
 
@@ -147,24 +179,43 @@ def historical_evidence_table(row: pd.Series, lang: str) -> pd.DataFrame:
 def show_historical_evidence(row: pd.Series, lang: str, expanded: bool = False) -> None:
     hist = row.get("historical_score")
     if pd.isna(hist) or hist is None:
-        st.caption(tr("この候補には一致するBTS履歴実績がないため、履歴根拠スコアは表示しません。",
-                      "No matched BTS historical evidence is available for this offer, so no historical evidence score is shown.", lang))
+        st.caption(tr("この候補には一致するBTS履歴実績がないため、履歴評価は表示しません。",
+                      "No matched BTS historical evidence is available for this offer, so no historical rating is shown.", lang))
         return
+
     carrier = row.get("historical_carrier_name") or row.get("historical_carrier_code") or "—"
     gateway = row.get("international_gateway") or "?"
     dest = row.get("japan_arrival_airport") or row.get("destination") or "?"
-    st.markdown(tr(
-        f"**BTS履歴根拠：{float(hist):.1f}/100** — {carrier} / {gateway}→{dest} の過去運航実績を照合",
-        f"**BTS historical evidence: {float(hist):.1f}/100** — matched to past operating evidence for {carrier} / {gateway}→{dest}", lang))
+    confidence = confidence_label(row.get("historical_data_confidence", "UNAVAILABLE"), lang)
+    match_type = str(row.get("historical_match_type") or "")
+
+    if match_type == "MARKET_MEDIAN_FALLBACK":
+        st.markdown(tr(
+            f"**BTS履歴評価：{float(hist):.1f}/100（市場参考値）** — {gateway}→{dest} の過去市場データを参照",
+            f"**BTS historical rating: {float(hist):.1f}/100 (market context)** — based on past {gateway}→{dest} market data", lang))
+        st.warning(tr(
+            "この航空会社に一致するBTS航空会社別データがないため、同じ日米市場の中央値を参考情報として表示しています。航空会社固有の実績としては扱っていません。",
+            "Carrier-specific BTS evidence was not matched. This uses the median for the same U.S.–Japan market as context and is not presented as that carrier's own record.", lang))
+    else:
+        st.markdown(tr(
+            f"**BTS履歴評価：{float(hist):.1f}/100** — {carrier} / {gateway}→{dest} の過去運航実績を照合",
+            f"**BTS historical rating: {float(hist):.1f}/100** — matched to past operating evidence for {carrier} / {gateway}→{dest}", lang))
+
+    st.caption(tr(f"データ信頼度：{confidence}", f"Data confidence: {confidence}", lang))
     table = historical_evidence_table(row, lang)
     if not table.empty:
         st.dataframe(table, hide_index=True, use_container_width=True)
+
     reason = row.get("historical_reason_ja" if lang=="日本語" else "historical_reason_en")
     if isinstance(reason, str) and reason:
+        st.markdown(tr("**この評価の主な根拠**", "**Why this rating**", lang))
         st.caption(reason)
+
+    st.caption(tr(
+        "※ 81.1などの履歴評価は、利用可能なBTS指標を組み合わせた比較用スコアです。個別に数値化する根拠が弱い項目は、無理に0〜100点へ変換せず『評価』として表示します。欠けている指標は減点用の0点として扱いません。",
+        "Historical ratings such as 81.1 combine the BTS indicators that are actually available. Evidence that is not defensibly numeric is shown as a category instead of forcing it into a 0–100 score. Missing indicators are not treated as zero-point penalties.", lang))
     st.caption(tr("※ 過去の運航実績は将来の遅延を予測するものではなく、候補便を比較するための参考根拠です。",
                   "Historical operating records do not predict a future delay; they are supporting evidence for comparing current offers.", lang))
-
 
 def profile_selector(lang: str) -> str:
     keys=list(PROFILES); label_key="label_ja" if lang=="日本語" else "label_en"; desc_key="description_ja" if lang=="日本語" else "description_en"
@@ -208,14 +259,14 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
             else: st.caption(tr(f"ライブオファー有効時間：約{int(remaining)}分",f"Live offer validity: about {int(remaining)} minutes remaining",lang))
         st.progress(max(0.0,min(1.0,score/100.0)),text=tr("FlightSmart 総合スコア","FlightSmart overall score",lang))
         d1,d2,d3,d4=st.columns(4); hist=row.get("historical_score")
-        d1.metric(tr("履歴実績","Historical evidence",lang),"—" if pd.isna(hist) else f"{float(hist):.1f}")
+        d1.metric(tr("BTS履歴評価","BTS historical rating",lang),"—" if pd.isna(hist) else f"{float(hist):.1f}/100")
         d2.metric(tr("乗り継ぎやすさ","Connection",lang),f"{float(row['connection_score']):.1f}")
         d3.metric(tr("所要時間評価","Duration",lang),f"{float(row['duration_score']):.1f}")
         d4.metric(tr("料金評価","Price value",lang),f"{float(row['price_value_score']):.1f}")
         st.write(row["explanation_ja"] if lang=="日本語" else row["explanation_en"])
         hist_reason=row.get("historical_reason_ja" if lang=="日本語" else "historical_reason_en")
         if (isinstance(hist_reason,str) and hist_reason) or pd.notna(row.get("historical_score")):
-            with st.expander(tr("BTSの過去実績：なぜこのスコア？","BTS past evidence: why this score?",lang)):
+            with st.expander(tr("BTSの過去実績：なぜこの評価？","BTS past evidence: why this rating?",lang)):
                 show_historical_evidence(row, lang)
 
 
@@ -223,6 +274,17 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
 st.markdown("""<div class="fs-hero"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub"><span class="fs-ja">日本行きのフライトを、安さだけでなく「選びやすさ」まで。</span><br><span class="fs-en">Compare U.S.–Japan flights by price, travel time, connections, and historical operating evidence.</span></div></div>""", unsafe_allow_html=True)
 
 lang=st.segmented_control("Language / 言語",["日本語","English"],default="日本語") or "日本語"
+
+st.markdown(f"""
+<div class="fs-story">
+  <div class="fs-story-title">{tr("このアプリを作った理由", "Why I made FlightSmart", lang)}</div>
+  {tr(
+      "私の家族は、アメリカから日本の家族に会いに行くため、数年ごとに家族で飛行機を予約します。子ども2人を連れての長距離移動で、欠航や大幅な遅延を経験したこともあり、どの便を選ぶかは私たちにとって大切な決断です。そこで、料金だけでなく、所要時間や乗り継ぎ、そして過去の運航実績も一緒に比較できたら、もっと納得して便を選べるのではないかと考え、FlightSmartを作りました。BTS（米国運輸統計局）の過去データを参考情報として組み合わせ、アメリカから日本を訪れる皆さまが、自分や家族に合ったフライトを選ぶための判断をサポートします。",
+      "My family travels from the United States to Japan every few years to visit our family. Traveling long distance with two children has sometimes meant dealing with canceled or significantly delayed flights, so choosing the right flight is an important decision for us. I created FlightSmart to make that choice more informed by comparing not only price, but also travel time, connections, and historical operating performance. FlightSmart uses historical U.S. Bureau of Transportation Statistics (BTS) data as supporting context to help travelers choose an option that fits them and their families. Historical records do not predict or guarantee future flight performance.",
+      lang
+  )}
+</div>
+""", unsafe_allow_html=True)
 AIRPORTS=airport_options()
 
 # Main search bar: Japanese travel-site style, no permanent sidebar.

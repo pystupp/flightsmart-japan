@@ -20,3 +20,15 @@
 - Added Cheapest / Recommended / Quickest decision cards and sorting.
 - Added opt-in ±1 day flexible-date fare grid for round trips.
 - Simplified first-screen explanations and moved BTS detail behind expandable evidence.
+
+## Step 14 — BTS evidence clarity
+- Replaced blank-heavy Evidence Score column with categorical Evidence Strength.
+- Added descriptive labels for service continuity and passenger records.
+- Added explicit market-context warning for carrier fallback matches.
+- Added BTS data-confidence display and clearer score methodology language.
+- Renamed traveler-facing historical metric to BTS Historical Rating.
+
+## Step 15 — Founder Story / Why FlightSmart
+- Added a Japanese-first “このアプリを作った理由 / Why I made FlightSmart” section at the top of the app.
+- Explains the family travel experience that motivated FlightSmart, including traveling with two children and past cancellations/delays.
+- Clarifies that BTS historical records are supporting decision evidence, not future-flight predictions or guarantees.
