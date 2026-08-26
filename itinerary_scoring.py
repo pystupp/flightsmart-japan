@@ -44,6 +44,18 @@ def match_historical_evidence(facts: dict[str, Any], route_scores: pd.DataFrame)
             "historical_reason_ja": "Duffel Airwaysはテストモード用の架空航空会社のため、FlightSmartではBTSの航空会社別履歴実績を紐づけません。",
             "historical_passengers": None,
             "historical_months_reported": None,
+            "historical_gateway_score": None,
+            "historical_carrier_score": None,
+            "historical_service_consistency_score": None,
+            "historical_passenger_evidence_score": None,
+            "historical_airport_2025_score": None,
+            "historical_chronic_risk_score": None,
+            "historical_on_time_departure_pct": None,
+            "historical_on_time_arrival_pct": None,
+            "historical_gateway_cancellation_pct": None,
+            "historical_carrier_cancellation_pct": None,
+            "historical_airport_rank_2025": None,
+            "historical_airport_ontime_pct_2025": None,
         }
 
     exact = route_scores[(route_scores.ORIGIN == gateway) & (route_scores.DEST == dest) & (route_scores.UNIQUE_CARRIER == op)]
@@ -67,6 +79,18 @@ def match_historical_evidence(facts: dict[str, Any], route_scores: pd.DataFrame)
             "historical_reason_ja": row.reason_ja,
             "historical_passengers": int(row.passengers),
             "historical_months_reported": int(row.months_reported),
+            "historical_gateway_score": None if pd.isna(row.get("gateway_score_100")) else float(row.get("gateway_score_100")),
+            "historical_carrier_score": None if pd.isna(row.get("carrier_score_100")) else float(row.get("carrier_score_100")),
+            "historical_service_consistency_score": None if pd.isna(row.get("service_consistency_score_100")) else float(row.get("service_consistency_score_100")),
+            "historical_passenger_evidence_score": None if pd.isna(row.get("passenger_evidence_score_100")) else float(row.get("passenger_evidence_score_100")),
+            "historical_airport_2025_score": None if pd.isna(row.get("airport_2025_score_100")) else float(row.get("airport_2025_score_100")),
+            "historical_chronic_risk_score": None if pd.isna(row.get("chronic_risk_score_100")) else float(row.get("chronic_risk_score_100")),
+            "historical_on_time_departure_pct": None if pd.isna(row.get("on_time_departure_pct")) else float(row.get("on_time_departure_pct")),
+            "historical_on_time_arrival_pct": None if pd.isna(row.get("on_time_arrival_pct")) else float(row.get("on_time_arrival_pct")),
+            "historical_gateway_cancellation_pct": None if pd.isna(row.get("gateway_cancellation_pct")) else float(row.get("gateway_cancellation_pct")),
+            "historical_carrier_cancellation_pct": None if pd.isna(row.get("carrier_cancellation_pct")) else float(row.get("carrier_cancellation_pct")),
+            "historical_airport_rank_2025": None if pd.isna(row.get("rank_2025")) else int(row.get("rank_2025")),
+            "historical_airport_ontime_pct_2025": None if pd.isna(row.get("on_time_pct_2025")) else float(row.get("on_time_pct_2025")),
         }
 
     # Conservative market-level fallback: same gateway/destination, but do not borrow a competitor's individual score.
@@ -84,6 +108,18 @@ def match_historical_evidence(facts: dict[str, Any], route_scores: pd.DataFrame)
             "historical_reason_ja": "この航空会社に一致する履歴データが見つからないため、この米国出発空港→日本市場の中央値を参考情報としてのみ使用し、信頼度を下げています。",
             "historical_passengers": int(market.passengers.sum()),
             "historical_months_reported": int(market.months_reported.max()),
+            "historical_gateway_score": None,
+            "historical_carrier_score": None,
+            "historical_service_consistency_score": None,
+            "historical_passenger_evidence_score": None,
+            "historical_airport_2025_score": None,
+            "historical_chronic_risk_score": None,
+            "historical_on_time_departure_pct": None,
+            "historical_on_time_arrival_pct": None,
+            "historical_gateway_cancellation_pct": None,
+            "historical_carrier_cancellation_pct": None,
+            "historical_airport_rank_2025": None,
+            "historical_airport_ontime_pct_2025": None,
         }
 
     return {
@@ -97,6 +133,18 @@ def match_historical_evidence(facts: dict[str, Any], route_scores: pd.DataFrame)
         "historical_reason_ja": "現在のFlightSmartデータには、この日米ルートに一致する履歴データがありません。",
         "historical_passengers": None,
         "historical_months_reported": None,
+        "historical_gateway_score": None,
+        "historical_carrier_score": None,
+        "historical_service_consistency_score": None,
+        "historical_passenger_evidence_score": None,
+        "historical_airport_2025_score": None,
+        "historical_chronic_risk_score": None,
+        "historical_on_time_departure_pct": None,
+        "historical_on_time_arrival_pct": None,
+        "historical_gateway_cancellation_pct": None,
+        "historical_carrier_cancellation_pct": None,
+        "historical_airport_rank_2025": None,
+        "historical_airport_ontime_pct_2025": None,
     }
 
 

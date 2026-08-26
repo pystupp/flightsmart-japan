@@ -76,6 +76,86 @@ def confidence_label(value: str, lang: str) -> str:
     return mapping_ja.get(str(value),str(value)) if lang=="日本語" else str(value).replace("_"," ").title()
 
 
+def historical_evidence_table(row: pd.Series, lang: str) -> pd.DataFrame:
+    """Build a traveler-facing BTS evidence table from the matched historical route row."""
+    rows = []
+
+    def add(ja_label: str, en_label: str, value: str, score_value):
+        score_text = "—" if score_value is None or pd.isna(score_value) else f"{float(score_value):.1f}/100"
+        rows.append({
+            tr("BTSの過去データ", "BTS historical evidence", lang): tr(ja_label, en_label, lang),
+            tr("実績", "Past record", lang): value,
+            tr("根拠スコア", "Evidence score", lang): score_text,
+        })
+
+    months = row.get("historical_months_reported")
+    if pd.notna(months) and months is not None:
+        add("日米路線の継続運航", "U.S.–Japan service consistency",
+            tr(f"{int(months)}か月分の運航実績", f"{int(months)} reported months of service", lang),
+            row.get("historical_service_consistency_score"))
+
+    passengers = row.get("historical_passengers")
+    if pd.notna(passengers) and passengers is not None:
+        add("日米路線の旅客実績", "U.S.–Japan passenger evidence",
+            tr(f"過去データ旅客数 {int(passengers):,}人", f"{int(passengers):,} passengers in the historical data", lang),
+            row.get("historical_passenger_evidence_score"))
+
+    dep = row.get("historical_on_time_departure_pct")
+    canc = row.get("historical_gateway_cancellation_pct")
+    if pd.notna(dep) and dep is not None:
+        val = tr(f"定時出発 {float(dep):.1f}%", f"{float(dep):.1f}% on-time departures", lang)
+        if pd.notna(canc) and canc is not None:
+            val += tr(f"・欠航 {float(canc):.1f}%", f" · {float(canc):.1f}% cancellations", lang)
+        add("米国ゲートウェイ空港の実績", "U.S. gateway operating record", val, row.get("historical_gateway_score"))
+
+    arr = row.get("historical_on_time_arrival_pct")
+    ccanc = row.get("historical_carrier_cancellation_pct")
+    if pd.notna(arr) and arr is not None:
+        val = tr(f"航空会社の定時到着 {float(arr):.1f}%", f"Carrier on-time arrivals {float(arr):.1f}%", lang)
+        if pd.notna(ccanc) and ccanc is not None:
+            val += tr(f"・欠航 {float(ccanc):.1f}%", f" · {float(ccanc):.1f}% cancellations", lang)
+        add("航空会社の定時運航実績", "Carrier on-time operating record", val, row.get("historical_carrier_score"))
+
+    rank = row.get("historical_airport_rank_2025")
+    ontime25 = row.get("historical_airport_ontime_pct_2025")
+    if (pd.notna(rank) and rank is not None) or (pd.notna(ontime25) and ontime25 is not None):
+        parts=[]
+        if pd.notna(rank) and rank is not None:
+            parts.append(tr(f"2025主要空港順位 #{int(rank)}", f"2025 major-airport rank #{int(rank)}", lang))
+        if pd.notna(ontime25) and ontime25 is not None:
+            parts.append(tr(f"定時到着 {float(ontime25):.1f}%", f"{float(ontime25):.1f}% on-time arrivals", lang))
+        add("2025年空港パフォーマンス", "2025 airport performance context", " · ".join(parts), row.get("historical_airport_2025_score"))
+
+    chronic = row.get("historical_chronic_risk_score")
+    if pd.notna(chronic) and chronic is not None:
+        add("慢性的な遅延シグナル", "Chronic-delay signal",
+            tr("高いほど慢性的遅延リスクが低い指標", "Higher score means a lower chronic-delay signal", lang), chronic)
+
+    return pd.DataFrame(rows)
+
+
+def show_historical_evidence(row: pd.Series, lang: str, expanded: bool = False) -> None:
+    hist = row.get("historical_score")
+    if pd.isna(hist) or hist is None:
+        st.caption(tr("この候補には一致するBTS履歴実績がないため、履歴根拠スコアは表示しません。",
+                      "No matched BTS historical evidence is available for this offer, so no historical evidence score is shown.", lang))
+        return
+    carrier = row.get("historical_carrier_name") or row.get("historical_carrier_code") or "—"
+    gateway = row.get("international_gateway") or "?"
+    dest = row.get("japan_arrival_airport") or row.get("destination") or "?"
+    st.markdown(tr(
+        f"**BTS履歴根拠：{float(hist):.1f}/100** — {carrier} / {gateway}→{dest} の過去運航実績を照合",
+        f"**BTS historical evidence: {float(hist):.1f}/100** — matched to past operating evidence for {carrier} / {gateway}→{dest}", lang))
+    table = historical_evidence_table(row, lang)
+    if not table.empty:
+        st.dataframe(table, hide_index=True, use_container_width=True)
+    reason = row.get("historical_reason_ja" if lang=="日本語" else "historical_reason_en")
+    if isinstance(reason, str) and reason:
+        st.caption(reason)
+    st.caption(tr("※ 過去の運航実績は将来の遅延を予測するものではなく、候補便を比較するための参考根拠です。",
+                  "Historical operating records do not predict a future delay; they are supporting evidence for comparing current offers.", lang))
+
+
 def profile_selector(lang: str) -> str:
     keys=list(PROFILES); label_key="label_ja" if lang=="日本語" else "label_en"; desc_key="description_ja" if lang=="日本語" else "description_en"
     selected=st.selectbox(tr("今回の旅行で一番大切なことは？","What matters most for this trip?",lang),keys,index=keys.index(DEFAULT_PROFILE),format_func=lambda k:PROFILES[k][label_key])
@@ -124,10 +204,9 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         d4.metric(tr("料金評価","Price value",lang),f"{float(row['price_value_score']):.1f}")
         st.write(row["explanation_ja"] if lang=="日本語" else row["explanation_en"])
         hist_reason=row.get("historical_reason_ja" if lang=="日本語" else "historical_reason_en")
-        if isinstance(hist_reason,str) and hist_reason:
-            with st.expander(tr("履歴データの根拠","Historical evidence details",lang)):
-                st.write(hist_reason)
-                st.caption(tr("履歴データは将来の遅延を予測するものではありません。","Historical evidence does not predict whether this future flight will be delayed.",lang))
+        if (isinstance(hist_reason,str) and hist_reason) or pd.notna(row.get("historical_score")):
+            with st.expander(tr("BTSの過去実績：なぜこのスコア？","BTS past evidence: why this score?",lang)):
+                show_historical_evidence(row, lang)
 
 
 st.markdown("""<div class="fs-hero"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub">アメリカから日本へのフライト選びを、料金だけでなく運航実績・乗り継ぎ・所要時間からサポート。<br>Smarter U.S.–Japan flight decisions beyond price alone.</div></div>""", unsafe_allow_html=True)
@@ -210,6 +289,8 @@ if search:
             st.caption(tr(f"旅行者設定：{top['traveler_profile_ja']}",f"Traveler profile: {top['traveler_profile_en']}",lang))
             st.markdown("#### " + tr("この便をおすすめする理由","Why this flight?",lang))
             st.write(top["explanation_ja"] if lang=="日本語" else top["explanation_en"])
+            with st.expander(tr("📊 BTSの過去実績でスコアの理由を見る","📊 See the BTS past evidence behind this score",lang), expanded=True):
+                show_historical_evidence(top, lang)
             st.subheader(tr("候補便ランキング","Ranked flight options",lang))
             for idx,row in ranked.head(8).iterrows(): result_card(row,lang,is_top=(idx==0))
             with st.expander(tr("スコアの重みを見る","View score weights",lang)):
@@ -244,4 +325,20 @@ with right:
         st.link_button(tr("フィードバックを送る","Send feedback",lang),feedback_url,use_container_width=True)
     else:
         st.caption(tr("管理者：FLIGHTSMART_FEEDBACK_URL を設定するとフィードバックボタンが有効になります。","Admin: set FLIGHTSMART_FEEDBACK_URL to enable the feedback button.",lang))
+st.divider()
+st.subheader(tr("データソース・参照先","Data sources & references",lang))
+st.caption(tr(
+    "FlightSmartはBTS/DOTの公開履歴データを過去実績の比較根拠として使用し、Duffelから返された候補便・料金・旅程をライブ比較に使用します。下記の公式サイトから元データ／API情報を確認できます。",
+    "FlightSmart uses public BTS/DOT historical data as supporting evidence and compares live offers, fares, and itineraries returned by Duffel. You can review the underlying official data/API information below.", lang))
+s1,s2=st.columns(2)
+with s1:
+    st.link_button(tr("🇺🇸 BTS 航空データ公式ページ","🇺🇸 BTS official airline data",lang),
+                   "https://www.bts.gov/airline-data-downloads",use_container_width=True)
+    st.caption(tr("T-100、定時運航、空港パフォーマンスなどの米国運輸省/BTS公開データ。",
+                  "U.S. DOT/BTS public datasets including T-100, on-time performance, and airport performance.",lang))
+with s2:
+    st.link_button(tr("✈️ Duffel API 公式ドキュメント","✈️ Duffel API official documentation",lang),
+                   "https://duffel.com/docs/api/offers",use_container_width=True)
+    st.caption(tr("今回の検索で返される候補便、旅程、運賃などのライブ検索データ提供元。",
+                  "Source documentation for the live flight offers, itineraries, and fares returned for the current search.",lang))
 st.caption(tr("データ設計：BTS/DOTの履歴運航データ + Duffelのライブ候補便。","Data design: BTS/DOT historical operating evidence + Duffel live offers.",lang))
