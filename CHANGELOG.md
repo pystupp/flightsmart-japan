@@ -14,3 +14,9 @@
 - Added service months, historical passengers, gateway/carrier on-time context, airport context, and chronic-delay evidence where available.
 - Added explicit explanation that historical evidence is not a future-delay prediction.
 - Added official BTS and Duffel source/reference links to the app footer.
+
+## Step 13 — Japanese-first decision UI
+- Rebuilt the primary search experience as a horizontal travel-search interface.
+- Added Cheapest / Recommended / Quickest decision cards and sorting.
+- Added opt-in ±1 day flexible-date fare grid for round trips.
+- Simplified first-screen explanations and moved BTS detail behind expandable evidence.

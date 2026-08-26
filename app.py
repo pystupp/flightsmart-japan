@@ -32,18 +32,28 @@ st.set_page_config(page_title="FlightSmart Japan", page_icon="✈️", layout="w
 
 st.markdown("""
 <style>
-.block-container {max-width: 1180px; padding-top: 1.5rem; padding-bottom: 3rem;}
+.block-container {max-width: 1320px; padding-top: 1.1rem; padding-bottom: 3rem;}
 [data-testid="stMetric"] {background: rgba(127,127,127,.06); border-radius: 14px; padding: .65rem .8rem;}
 [data-testid="stSidebar"] {min-width: 320px;}
-.fs-hero {padding: 1.15rem 1.25rem; border: 1px solid rgba(127,127,127,.18); border-radius: 18px; margin-bottom: 1rem;}
+.fs-hero {padding: 1.45rem 1.6rem; border: 1px solid #dfe7ef; border-radius: 22px; margin-bottom: 1.1rem; background: linear-gradient(135deg,#ffffff 0%,#f6fbff 100%); box-shadow:0 8px 28px rgba(20,54,90,.06);}
 .fs-kicker {font-size:.86rem; opacity:.75; letter-spacing:.04em; text-transform:uppercase;}
-.fs-title {font-size:2rem; font-weight:750; margin:.15rem 0 .35rem 0;}
+.fs-title {font-size:2.15rem; font-weight:800; margin:.15rem 0 .35rem 0; color:#102a43;}
 .fs-sub {opacity:.82; line-height:1.55;}
 @media (max-width: 700px) {
   .block-container {padding-left: .75rem; padding-right: .75rem;}
   .fs-title {font-size:1.55rem;}
   [data-testid="column"] {min-width: 100% !important;}
 }
+
+.fs-search {border:1px solid #dfe7ef; border-radius:20px; padding:1rem 1.15rem .35rem; background:white; box-shadow:0 8px 26px rgba(20,54,90,.06); margin:.8rem 0 1.2rem;}
+.fs-section-title {font-size:1.35rem; font-weight:800; color:#102a43; margin:.35rem 0 .2rem;}
+.fs-section-sub {color:#64748b; margin-bottom:.75rem;}
+.fs-reco {border:2px solid #2f80ed; border-radius:20px; padding:1.15rem 1.25rem; background:#f7fbff; margin:.75rem 0 1rem;}
+.fs-pill {display:inline-block; padding:.28rem .62rem; border-radius:999px; background:#eef6ff; color:#1769c2; font-size:.82rem; font-weight:700; margin-right:.35rem;}
+.fs-ja {font-weight:750;} .fs-en {font-size:.82rem; color:#718096; margin-top:.08rem;}
+[data-testid="stForm"] {border:0; padding:0;}
+div.stButton > button[kind="primary"], div[data-testid="stFormSubmitButton"] button {border-radius:12px; min-height:3rem; font-weight:750;}
+[data-testid="stDataFrame"] {border-radius:14px; overflow:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -209,136 +219,191 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
                 show_historical_evidence(row, lang)
 
 
-st.markdown("""<div class="fs-hero"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub">アメリカから日本へのフライト選びを、料金だけでなく運航実績・乗り継ぎ・所要時間からサポート。<br>Smarter U.S.–Japan flight decisions beyond price alone.</div></div>""", unsafe_allow_html=True)
+
+st.markdown("""<div class="fs-hero"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub"><span class="fs-ja">日本行きのフライトを、安さだけでなく「選びやすさ」まで。</span><br><span class="fs-en">Compare U.S.–Japan flights by price, travel time, connections, and historical operating evidence.</span></div></div>""", unsafe_allow_html=True)
+
 lang=st.segmented_control("Language / 言語",["日本語","English"],default="日本語") or "日本語"
 AIRPORTS=airport_options()
 
-with st.sidebar:
-    st.header(tr("フライト検索","Flight search",lang))
-    mode=st.radio(tr("検索モード","Search mode",lang),["live","demo"],format_func=lambda x:tr("Duffel ライブ検索" if x=="live" else "デモデータ","Duffel live search" if x=="live" else "Demo data",lang))
-    trip=st.segmented_control(tr("旅程","Trip",lang),["round_trip","one_way"],default="round_trip",format_func=lambda x:tr("往復" if x=="round_trip" else "片道","Round trip" if x=="round_trip" else "One way",lang)) or "round_trip"
-    airport_keys=list(AIRPORTS); default_idx=airport_keys.index("ATL") if "ATL" in airport_keys else 0
-    origin=st.selectbox(tr("米国出発空港（都市名・コードで検索）","U.S. origin airport (search city or code)",lang),airport_keys,index=default_idx,format_func=lambda k:AIRPORTS[k])
-    destination=st.selectbox(tr("日本の到着空港","Japan destination",lang),list(JAPAN_AIRPORTS),format_func=lambda k:JAPAN_AIRPORTS[k])
-    depart_date=st.date_input(tr("出発日","Departure date",lang),value=date.today()+timedelta(days=45),min_value=date.today()+timedelta(days=1))
+# Main search bar: Japanese travel-site style, no permanent sidebar.
+st.markdown('<div class="fs-search">', unsafe_allow_html=True)
+trip=st.segmented_control(tr("旅程","Trip",lang),["round_trip","one_way"],default="round_trip",format_func=lambda x:tr("往復" if x=="round_trip" else "片道","Round trip" if x=="round_trip" else "One way",lang)) or "round_trip"
+airport_keys=list(AIRPORTS); default_idx=airport_keys.index("ATL") if "ATL" in airport_keys else 0
+r1,r2,r3,r4=st.columns([1.45,1.2,1.15,1.1])
+with r1:
+    origin=st.selectbox(tr("出発地","From",lang),airport_keys,index=default_idx,format_func=lambda k:AIRPORTS[k])
+with r2:
+    destination=st.selectbox(tr("目的地","To",lang),list(JAPAN_AIRPORTS),format_func=lambda k:JAPAN_AIRPORTS[k])
+with r3:
+    depart_date=st.date_input(tr("出発日","Depart",lang),value=date.today()+timedelta(days=45),min_value=date.today()+timedelta(days=1))
+with r4:
     return_date=None
     if trip=="round_trip":
-        return_date=st.date_input(tr("帰国日","Return date",lang),value=depart_date+timedelta(days=14),min_value=depart_date+timedelta(days=1))
+        return_date=st.date_input(tr("帰国日","Return",lang),value=depart_date+timedelta(days=14),min_value=depart_date+timedelta(days=1))
+    else:
+        st.text_input(tr("帰国日","Return",lang),value=tr("片道","One way",lang),disabled=True)
 
-    passenger_count=st.number_input(tr("旅行者数","Travelers",lang),min_value=1,max_value=6,value=1,step=1)
-    passenger_ages=[]
-    with st.expander(tr("旅行者の年齢","Passenger ages",lang),expanded=int(passenger_count)>1):
-        st.caption(tr("Duffel検索の運賃区分を正確にするため年齢を使用します。18歳以上の旅行者が1名以上必要です。","Ages are used for more accurate Duffel fare/passenger matching. At least one traveler must be 18+.",lang))
-        for i in range(int(passenger_count)):
-            default_age=35 if i==0 else 10
-            age=st.number_input(tr(f"旅行者 {i+1} の年齢",f"Traveler {i+1} age",lang),min_value=0,max_value=120,value=default_age,step=1,key=f"age_{i}")
-            passenger_ages.append(int(age))
-
+s1,s2,s3,s4=st.columns([1.05,1.15,1.35,1.1])
+with s1:
+    passenger_count=st.number_input(tr("旅行者","Travelers",lang),min_value=1,max_value=6,value=1,step=1)
+with s2:
     cabin=st.selectbox(tr("座席クラス","Cabin",lang),list(CABINS),format_func=lambda k:CABINS[k][0 if lang=="日本語" else 1])
-    max_conn=st.selectbox(tr("片道ごとの最大乗り継ぎ回数","Maximum connections per direction",lang),[0,1,2],index=1)
-    st.divider(); profile=profile_selector(lang)
-    search=st.button(tr("おすすめ便を検索","Find recommended flights",lang),type="primary",use_container_width=True)
+with s3:
+    max_conn=st.selectbox(tr("乗り継ぎ","Connections",lang),[0,1,2],index=1,format_func=lambda n:tr("直行便のみ" if n==0 else f"最大{n}回", "Nonstop only" if n==0 else f"Up to {n}",lang))
+with s4:
+    mode=st.selectbox(tr("検索データ","Search data",lang),["live","demo"],format_func=lambda x:tr("ライブ検索" if x=="live" else "デモ","Live search" if x=="live" else "Demo",lang))
 
-st.info(tr("FlightSmartのスコアは候補便を比較するための意思決定サポートです。航空会社の公式な遅延予測や予約保証ではありません。","FlightSmart scores are decision support for comparing offers. They are not airline-provided delay forecasts or booking guarantees.",lang))
-with st.expander(tr("FlightSmartは何を比較するの？","What does FlightSmart compare?",lang)):
-    st.markdown(tr("""**4つの視点で候補便を比較します。** ① BTS/DOTの履歴運航実績、② 乗り継ぎのしやすさ、③ 所要時間、④ 今回取得した候補内での料金。旅行スタイルを選ぶと重みが変わります。""","""**FlightSmart compares four dimensions:** (1) BTS/DOT historical operating evidence, (2) connection convenience, (3) itinerary duration, and (4) price relative to the offers returned in the current search. Your traveler profile changes the weights.""",lang))
+passenger_ages=[]
+with st.expander(tr("旅行者の年齢を設定（お子様連れはこちら）","Passenger ages (including children)",lang),expanded=int(passenger_count)>1):
+    st.caption(tr("正確な運賃検索のため年齢を使用します。18歳以上の旅行者が1名以上必要です。","Ages improve fare matching. At least one traveler must be 18+.",lang))
+    age_cols=st.columns(min(int(passenger_count),3))
+    for i in range(int(passenger_count)):
+        with age_cols[i%len(age_cols)]:
+            passenger_ages.append(int(st.number_input(tr(f"旅行者 {i+1}",f"Traveler {i+1}",lang),0,120,35 if i==0 else 10,1,key=f"age_{i}")))
+
+p1,p2=st.columns([2.2,1])
+with p1:
+    profile=profile_selector(lang)
+with p2:
+    search=st.button(tr("フライトを比較する","Compare flights",lang),type="primary",use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.caption(tr("FlightSmart Scoreは候補便を比較するための意思決定サポートです。将来の遅延予測や予約保証ではありません。","FlightSmart Score is decision support for comparing offers, not a future delay forecast or booking guarantee.",lang))
 show_travel_context(depart_date,lang,tr("出発日の旅行情報","Departure-date travel context",lang))
 if return_date: show_travel_context(return_date,lang,tr("帰国日の旅行情報","Return-date travel context",lang))
 
+# Persist the most recent result so users can change tabs/sort without losing it.
 if search:
     if not any(a>=18 for a in passenger_ages):
         st.error(tr("18歳以上の旅行者を1名以上含めてください。","Include at least one traveler age 18 or older.",lang)); st.stop()
-    if mode=="demo" and (origin!="ATL" or destination!="HND"):
-        st.warning(tr("デモデータはATL→HNDのサンプルです。入力条件ではなくサンプル旅程を表示します。","Demo data uses saved ATL→HND examples, so results below do not reflect the selected route.",lang))
     try:
-        with st.spinner(tr("候補便を分析しています…","Analyzing flight options…",lang)):
+        with st.spinner(tr("候補便を検索し、FlightSmartが比較しています…","Searching and comparing flight options…",lang)):
             if mode=="demo":
                 payload=load_demo_payload(trip=="round_trip")
-                st.caption(tr("保存済みのデモ候補便を使用しています。","Using saved demo offers for this test.",lang))
             else:
                 token=get_duffel_token()
                 if not token:
-                    st.error(tr("Duffelトークンが設定されていません。DUFFEL_ACCESS_TOKENを設定するか、デモモードを選んでください。","No Duffel token is configured. Set DUFFEL_ACCESS_TOKEN or use Demo mode.",lang)); st.stop()
+                    st.error(tr("Duffelトークンが設定されていません。","No Duffel token is configured.",lang)); st.stop()
                 payload=create_offer_request(origin=origin,destination=destination,departure_date=depart_date.isoformat(),return_date=return_date.isoformat() if return_date else None,passenger_ages=passenger_ages,cabin_class=cabin,max_connections=int(max_conn),token=token)
             offers=extract_offers(payload)
-            coverage=summarize_airline_coverage(offers)
             ranked=evaluate_offers(offers,profile_key=profile)
-        if coverage.get("is_test_mode"):
-            st.warning(tr(
-                "🧪 現在のDuffel検索はテストモードです。Duffel Airwaysなどのサンドボックス結果は実際の航空会社在庫・料金を表しません。ANA/JALが表示されなくても、FlightSmartが除外しているという意味ではありません。実際の航空会社在庫を確認するにはDuffelのライブモードが必要です。",
-                "🧪 This Duffel search is running in test mode. Sandbox results such as Duffel Airways do not represent real airline inventory or prices. If ANA/JAL are absent, that does not mean FlightSmart filtered them out. Duffel live mode is required to evaluate real airline availability.",lang))
-        with st.expander(tr("ライブ検索の航空会社カバレッジ","Live-search airline coverage",lang),expanded=coverage.get("is_test_mode",False)):
-            st.caption(tr(f"Duffelから返された候補：{coverage['offer_count']}件",f"Offers returned by Duffel: {coverage['offer_count']}",lang))
-            op_counts=coverage.get("operating_counts",{})
-            if op_counts:
-                st.write(tr("運航航空会社別","By operating carrier",lang),op_counts)
-            jp=coverage.get("japanese_status",{})
-            status_bits=[]
-            for code,info in jp.items():
-                mark="✅" if info.get("present") else "—"
-                status_bits.append(f"{mark} {info.get('label')} ({code})")
-            st.write(tr("日本系航空会社の返却状況","Japanese-carrier return status",lang)+": "+" · ".join(status_bits))
-            if not any(info.get("present") for info in jp.values()):
-                st.info(tr("ANA/JAL/ZIPAIRは今回Duffelから返された候補に含まれていません。FlightSmartのランキング処理で削除されたわけではありません。","ANA/JAL/ZIPAIR were not present in the offers returned by Duffel for this search. They were not removed by FlightSmart ranking logic.",lang))
-        if ranked.empty: st.warning(tr("条件に一致する候補便が見つかりませんでした。","No matching offers were returned.",lang))
-        else:
-            st.success(tr(f"{len(ranked)}件の候補便を分析しました。",f"Analyzed {len(ranked)} flight offers.",lang))
-            top=ranked.iloc[0]
-            st.header(tr("FlightSmart おすすめ","FlightSmart recommendation",lang))
-            st.markdown(f"### 🏆 {top['operating_carrier_name']} — {float(top['flightsmart_live_score']):.1f}/100\n**{top['segment_summary']}**  ·  {money(top['total_currency'],top['total_amount'])}")
-            st.caption(tr(f"旅行者設定：{top['traveler_profile_ja']}",f"Traveler profile: {top['traveler_profile_en']}",lang))
-            st.markdown("#### " + tr("この便をおすすめする理由","Why this flight?",lang))
-            st.write(top["explanation_ja"] if lang=="日本語" else top["explanation_en"])
-            with st.expander(tr("📊 BTSの過去実績でスコアの理由を見る","📊 See the BTS past evidence behind this score",lang), expanded=True):
-                show_historical_evidence(top, lang)
-            st.subheader(tr("候補便ランキング","Ranked flight options",lang))
-            for idx,row in ranked.head(8).iterrows(): result_card(row,lang,is_top=(idx==0))
-            with st.expander(tr("スコアの重みを見る","View score weights",lang)):
-                st.write({tr("履歴実績","Historical evidence",lang):f"{float(top['weight_historical']):.0%}",tr("乗り継ぎ","Connection convenience",lang):f"{float(top['weight_connection']):.0%}",tr("所要時間","Duration",lang):f"{float(top['weight_duration']):.0%}",tr("料金","Price value",lang):f"{float(top['weight_price_value']):.0%}"})
+            coverage=summarize_airline_coverage(offers)
+            st.session_state["fs_ranked"]=ranked
+            st.session_state["fs_coverage"]=coverage
+            st.session_state["fs_search_meta"]={"origin":origin,"destination":destination,"depart":depart_date,"return":return_date,"trip":trip,"profile":profile,"mode":mode,"ages":passenger_ages,"cabin":cabin,"max_conn":int(max_conn)}
     except Exception as exc:
         st.error(tr("検索または分析中にエラーが発生しました。","An error occurred while searching or scoring offers.",lang)); st.code(str(exc))
 
+ranked=st.session_state.get("fs_ranked")
+coverage=st.session_state.get("fs_coverage",{})
+meta=st.session_state.get("fs_search_meta")
+
+if isinstance(ranked,pd.DataFrame) and not ranked.empty:
+    if coverage.get("is_test_mode"):
+        st.warning(tr("🧪 Duffelテストモードの結果です。表示される航空会社・料金は実在庫を表しません。","🧪 Duffel test-mode results do not represent real airline inventory or fares.",lang))
+
+    st.markdown('<div class="fs-section-title">あなたに合う選択肢 / Best choices for you</div>',unsafe_allow_html=True)
+    st.markdown('<div class="fs-section-sub">まず3つの見方から選べます。詳しいスコアを理解しなくても比較できます。</div>' if lang=="日本語" else '<div class="fs-section-sub">Start with three simple views. You do not need to understand the scoring model to compare flights.</div>',unsafe_allow_html=True)
+
+    cheapest=ranked.sort_values("total_amount",na_position="last").iloc[0]
+    quickest=ranked.sort_values("total_duration_min",na_position="last").iloc[0]
+    best=ranked.iloc[0]
+    c1,c2,c3=st.columns(3)
+    with c1:
+        with st.container(border=True):
+            st.markdown("### 💴 "+tr("最安値","Cheapest",lang)); st.metric(tr("料金","Price",lang),money(cheapest.get("total_currency"),cheapest.get("total_amount"))); st.caption((cheapest.get("operating_carrier_name") or "—")+" · "+duration_label(cheapest.get("total_duration_min"),lang))
+    with c2:
+        with st.container(border=True):
+            st.markdown("### ⭐ "+tr("おすすめ","Recommended",lang)); st.metric("FlightSmart",f"{float(best['flightsmart_live_score']):.1f}/100"); st.caption((best.get("operating_carrier_name") or "—")+" · "+money(best.get("total_currency"),best.get("total_amount")))
+    with c3:
+        with st.container(border=True):
+            st.markdown("### ⏱ "+tr("最短時間","Quickest",lang)); st.metric(tr("所要時間","Duration",lang),duration_label(quickest.get("total_duration_min"),lang)); st.caption((quickest.get("operating_carrier_name") or "—")+" · "+money(quickest.get("total_currency"),quickest.get("total_amount")))
+
+    st.markdown('<div class="fs-reco">',unsafe_allow_html=True)
+    st.markdown("### ⭐ "+tr("FlightSmartのおすすめ","FlightSmart recommendation",lang))
+    st.markdown(f"**{best.get('operating_carrier_name') or '—'}**　{money(best.get('total_currency'),best.get('total_amount'))}　·　{duration_label(best.get('total_duration_min'),lang)}　·　**{float(best['flightsmart_live_score']):.1f}/100**")
+    st.write(best["explanation_ja"] if lang=="日本語" else best["explanation_en"])
+    st.markdown('</div>',unsafe_allow_html=True)
+
+    # Flexible-date comparison is intentionally opt-in: it creates several live Duffel searches.
+    if meta and meta.get("trip")=="round_trip":
+        st.markdown('<div class="fs-section-title">📅 日程を少し変えると？ / Flexible dates</div>',unsafe_allow_html=True)
+        st.caption(tr("出発日・帰国日を前後1日ずつ比較して、料金差を見つけます。ライブ検索では最大9通りを確認します。","Compare ±1 day around departure and return dates to reveal fare differences. Live mode checks up to 9 combinations.",lang))
+        flex_btn=st.button(tr("前後1日の料金を比較","Compare ±1 day fares",lang),use_container_width=False)
+        if flex_btn:
+            if meta.get("mode")=="demo":
+                st.info(tr("日付別料金はライブDuffel検索で利用できます。デモでは現在のサンプル料金のみ表示します。","Flexible-date fares require live Duffel search. Demo mode only contains the saved sample fare.",lang))
+            else:
+                token=get_duffel_token()
+                rows=[]
+                dep_dates=[meta["depart"]+timedelta(days=i) for i in (-1,0,1)]
+                ret_dates=[meta["return"]+timedelta(days=i) for i in (-1,0,1)]
+                prog=st.progress(0,text=tr("近い日程の料金を確認中…","Checking nearby-date fares…",lang))
+                total=len(dep_dates)*len(ret_dates); done=0
+                for rd in ret_dates:
+                    for dd in dep_dates:
+                        done+=1
+                        if rd<=dd:
+                            rows.append({"depart":dd,"return":rd,"price":None,"currency":""}); prog.progress(done/total); continue
+                        try:
+                            pp=create_offer_request(origin=meta["origin"],destination=meta["destination"],departure_date=dd.isoformat(),return_date=rd.isoformat(),passenger_ages=meta["ages"],cabin_class=meta["cabin"],max_connections=meta["max_conn"],token=token)
+                            oo=extract_offers(pp); rr=evaluate_offers(oo,profile_key=meta["profile"])
+                            if not rr.empty:
+                                low=rr.sort_values("total_amount",na_position="last").iloc[0]
+                                rows.append({"depart":dd,"return":rd,"price":float(low["total_amount"]),"currency":low.get("total_currency") or ""})
+                            else: rows.append({"depart":dd,"return":rd,"price":None,"currency":""})
+                        except Exception:
+                            rows.append({"depart":dd,"return":rd,"price":None,"currency":""})
+                        prog.progress(done/total)
+                prog.empty(); st.session_state["fs_flex_rows"]=rows
+
+        flex_rows=st.session_state.get("fs_flex_rows")
+        if flex_rows:
+            fdf=pd.DataFrame(flex_rows); valid=fdf.dropna(subset=["price"])
+            if not valid.empty:
+                minprice=float(valid["price"].min()); selected=valid[(valid["depart"]==meta["depart"])&(valid["return"]==meta["return"])]
+                base=float(selected.iloc[0]["price"]) if not selected.empty else None
+                currency=str(valid.iloc[0]["currency"] or "")
+                grid=[]
+                for rd in sorted(fdf["return"].unique()):
+                    row={tr("帰国日","Return",lang):rd.strftime("%m/%d")}
+                    for dd in sorted(fdf["depart"].unique()):
+                        hit=fdf[(fdf["depart"]==dd)&(fdf["return"]==rd)]
+                        if hit.empty or pd.isna(hit.iloc[0]["price"]): val="—"
+                        else:
+                            price=float(hit.iloc[0]["price"]); diff=(price-base) if base is not None else None
+                            tag=" ⭐" if price==minprice else ""
+                            val=f"{currency} {price:,.0f}{tag}" + ((f" ({diff:+,.0f})") if diff is not None and abs(diff)>=1 else "")
+                        row[dd.strftime("%m/%d")]=val
+                    grid.append(row)
+                st.dataframe(pd.DataFrame(grid),hide_index=True,use_container_width=True)
+                bestdate=valid.loc[valid["price"].idxmin()]
+                if base is not None and minprice<base:
+                    savings=base-minprice
+                    st.success(tr(f"💡 {bestdate['depart'].strftime('%m/%d')}出発・{bestdate['return'].strftime('%m/%d')}帰国なら、検索された旅行者全員の表示運賃で約{currency} {savings:,.0f}安くなります。",f"💡 Depart {bestdate['depart'].strftime('%m/%d')} and return {bestdate['return'].strftime('%m/%d')} to save about {currency} {savings:,.0f} on the displayed total fare for the travelers in this search.",lang))
+
+    st.markdown('<div class="fs-section-title">✈️ 候補便を比較 / Compare flight options</div>',unsafe_allow_html=True)
+    view=st.segmented_control(tr("並び替え","Sort",lang),["recommended","cheapest","quickest"],default="recommended",format_func=lambda x:{"recommended":tr("⭐ おすすめ","⭐ Recommended",lang),"cheapest":tr("💴 最安値","💴 Cheapest",lang),"quickest":tr("⏱ 最短時間","⏱ Quickest",lang)}[x]) or "recommended"
+    shown=ranked if view=="recommended" else ranked.sort_values("total_amount" if view=="cheapest" else "total_duration_min",na_position="last")
+    for pos,(_,row) in enumerate(shown.head(8).iterrows()): result_card(row,lang,is_top=(pos==0 and view=="recommended"))
+
+    with st.expander(tr("📊 おすすめの根拠：BTSの過去実績を見る","📊 Why recommended: see BTS historical evidence",lang),expanded=False):
+        show_historical_evidence(best,lang)
+    with st.expander(tr("検索で返された航空会社を確認","See airlines returned in this search",lang)):
+        st.write(coverage.get("operating_counts",{}))
+else:
+    st.markdown('<div class="fs-section-title">FlightSmartでできること</div>',unsafe_allow_html=True)
+    a,b,c=st.columns(3)
+    for col,icon,title,body in [(a,"💴","料金を比較","候補内の価格差をわかりやすく比較"),(b,"📅","日程を比較","前後1日で大きな料金差がないか確認"),(c,"📊","実績も確認","BTS/DOTの過去運航実績を比較の根拠に")]:
+        with col:
+            with st.container(border=True): st.markdown(f"### {icon} {title}"); st.caption(body)
+
 st.divider()
-left,right=st.columns([2,1])
-with left:
-    with st.expander(tr("データ・スコア・免責事項","Data, scoring & disclaimer",lang)):
-        st.markdown(tr("""- **履歴データ:** BTS/DOTの運航実績を意思決定の参考情報として使用します。
-- **ライブ情報:** Duffelから返された候補便・料金・旅程を比較します。
-- **繁忙期表示:** 旅行計画上の参考情報で、遅延や価格の予測ではありません。
-- **FlightSmart Score:** 候補便を比較するための独自スコアで、航空会社や政府機関の公式評価ではありません。
-- **予約前:** 最終料金、手荷物、変更・払戻条件、旅券・入国要件は予約画面と公式情報で必ず確認してください。""","""- **Historical data:** BTS/DOT operating history is used as decision-support evidence.
-- **Live information:** Flight options, fares, and itineraries returned by Duffel are compared.
-- **Travel-period notices:** Planning context only; they do not predict delays or prices.
-- **FlightSmart Score:** A proprietary comparison score, not an official airline or government rating.
-- **Before booking:** Verify final fare, baggage, change/refund rules, passport, and entry requirements with the booking provider and official sources.""",lang))
-    with st.expander(tr("プライバシー（ベータ版）","Privacy (beta)",lang)):
-        st.write(tr("FlightSmartは検索に必要な旅行条件を処理します。このベータ版はアカウントを作成せず、アプリ内で旅券番号や支払いカード情報を入力する設計ではありません。公開前には、利用するホスティング・分析・フィードバックサービスに合わせて正式なプライバシーポリシーを更新してください。","FlightSmart processes trip inputs needed to search and compare flights. This beta does not require an account and is not designed to collect passport numbers or payment-card details inside the app. Before a public launch, update the formal privacy policy to match the hosting, analytics, and feedback services you actually use.",lang))
-with right:
-    feedback_url=os.getenv("FLIGHTSMART_FEEDBACK_URL")
-    try:
-        feedback_url=feedback_url or st.secrets.get("FLIGHTSMART_FEEDBACK_URL")
-    except Exception:
-        pass
-    st.markdown("**"+tr("ベータ版へのご意見","Beta feedback",lang)+"**")
-    st.caption(tr("使いやすさやおすすめ結果について、ぜひ教えてください。","Tell us what felt useful, confusing, or surprising.",lang))
-    if feedback_url:
-        st.link_button(tr("フィードバックを送る","Send feedback",lang),feedback_url,use_container_width=True)
-    else:
-        st.caption(tr("管理者：FLIGHTSMART_FEEDBACK_URL を設定するとフィードバックボタンが有効になります。","Admin: set FLIGHTSMART_FEEDBACK_URL to enable the feedback button.",lang))
-st.divider()
+with st.expander(tr("FlightSmartの比較方法・免責事項","How FlightSmart compares flights & disclaimer",lang)):
+    st.markdown(tr("""**4つの視点:** ① BTS/DOTの履歴運航実績、② 乗り継ぎのしやすさ、③ 所要時間、④ 今回取得した候補内での料金。履歴データは将来の遅延を予測するものではありません。予約前に最終料金、手荷物、変更・払戻条件を必ず確認してください。""","""**Four dimensions:** (1) BTS/DOT historical operating evidence, (2) connection convenience, (3) itinerary duration, and (4) price relative to the returned offers. Historical data does not predict future delays. Verify final fare, baggage, and change/refund conditions before booking.""",lang))
+
 st.subheader(tr("データソース・参照先","Data sources & references",lang))
-st.caption(tr(
-    "FlightSmartはBTS/DOTの公開履歴データを過去実績の比較根拠として使用し、Duffelから返された候補便・料金・旅程をライブ比較に使用します。下記の公式サイトから元データ／API情報を確認できます。",
-    "FlightSmart uses public BTS/DOT historical data as supporting evidence and compares live offers, fares, and itineraries returned by Duffel. You can review the underlying official data/API information below.", lang))
 s1,s2=st.columns(2)
-with s1:
-    st.link_button(tr("🇺🇸 BTS 航空データ公式ページ","🇺🇸 BTS official airline data",lang),
-                   "https://www.bts.gov/airline-data-downloads",use_container_width=True)
-    st.caption(tr("T-100、定時運航、空港パフォーマンスなどの米国運輸省/BTS公開データ。",
-                  "U.S. DOT/BTS public datasets including T-100, on-time performance, and airport performance.",lang))
-with s2:
-    st.link_button(tr("✈️ Duffel API 公式ドキュメント","✈️ Duffel API official documentation",lang),
-                   "https://duffel.com/docs/api/offers",use_container_width=True)
-    st.caption(tr("今回の検索で返される候補便、旅程、運賃などのライブ検索データ提供元。",
-                  "Source documentation for the live flight offers, itineraries, and fares returned for the current search.",lang))
-st.caption(tr("データ設計：BTS/DOTの履歴運航データ + Duffelのライブ候補便。","Data design: BTS/DOT historical operating evidence + Duffel live offers.",lang))
+with s1: st.link_button(tr("🇺🇸 BTS 航空データ公式ページ","🇺🇸 BTS official airline data",lang),"https://www.bts.gov/airline-data-downloads",use_container_width=True)
+with s2: st.link_button(tr("✈️ Duffel API 公式ドキュメント","✈️ Duffel API official documentation",lang),"https://duffel.com/docs/api/offers",use_container_width=True)
+st.caption(tr("BTS/DOTの履歴運航データ + Duffelの候補便・料金・旅程。","BTS/DOT historical operating evidence + Duffel flight offers, fares, and itineraries.",lang))
