@@ -46,3 +46,9 @@
 - Low/Limited/Unavailable results are shown as reference options without rank numbers.
 - Exact operating-carrier matches outrank marketing-carrier fallbacks when confidence is equal.
 - Historical rating, observed months, and passenger evidence are used after confidence/match quality.
+
+## Step 19 — Evidence-aware recommendation confidence
+- Prevented unavailable/weak historical evidence from producing misleading perfect recommendation scores.
+- Added transparent confidence ceilings without treating missing data as bad performance.
+- Added outbound/return transpacific operating-carrier labels for mixed-airline itineraries.
+- Preserved the separate BTS evidence-first historical ranking.

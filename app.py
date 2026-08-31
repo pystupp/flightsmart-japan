@@ -256,6 +256,13 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
                 "BTSの航空会社別履歴データが不足している、または信頼度が低いため、番号付きの過去実績ランキングには含めていません。料金・所要時間・乗り継ぎは参考として比較できます。",
                 "Carrier-specific BTS history is unavailable or not reliable enough for a numbered past-record rank. Price, duration, and connections are still shown for reference.", lang))
         st.markdown(f"**{tr('運航航空会社','Operating carrier',lang)}:** {carrier}")
+        out_intl=row.get("outbound_international_carrier")
+        ret_intl=row.get("return_international_carrier")
+        if out_intl or ret_intl:
+            parts=[]
+            if out_intl: parts.append(tr(f"往路の日米区間: {out_intl}", f"Outbound transpacific: {out_intl}", lang))
+            if ret_intl: parts.append(tr(f"復路の日米区間: {ret_intl}", f"Return transpacific: {ret_intl}", lang))
+            st.info("  ·  ".join(parts))
         marketing=row.get("marketing_carrier_name") or row.get("marketing_carrier_code")
         if marketing and str(marketing) != str(carrier):
             st.caption(f"{tr('販売航空会社','Marketing carrier',lang)}: {marketing}")
@@ -273,6 +280,12 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         if pd.notna(remaining) and remaining is not None:
             if int(remaining)<=5: st.error(tr(f"このオファーは約{int(remaining)}分で期限切れになります。",f"This offer expires in about {int(remaining)} minutes.",lang))
             else: st.caption(tr(f"ライブオファー有効時間：約{int(remaining)}分",f"Live offer validity: about {int(remaining)} minutes remaining",lang))
+        raw_score=row.get("score_before_evidence_cap")
+        cap=row.get("evidence_confidence_cap")
+        if pd.notna(raw_score) and pd.notna(cap) and float(raw_score) > float(cap):
+            st.caption(tr(
+                f"履歴データの信頼度を反映し、総合スコアは{float(cap):.0f}点を上限にしています（ライブ条件のみの評価: {float(raw_score):.1f}）。",
+                f"Evidence confidence limits this recommendation to {float(cap):.0f}/100 (live-itinerary-only result before the confidence cap: {float(raw_score):.1f}).", lang))
         if is_ranked:
             st.progress(max(0.0,min(1.0,score/100.0)),text=tr("FlightSmart 総合スコア","FlightSmart overall score",lang))
         else:

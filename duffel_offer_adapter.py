@@ -105,6 +105,8 @@ class LiveItineraryFacts:
     segment_summary: str
     outbound_summary: str
     return_summary: str | None
+    outbound_international_carrier: str | None
+    return_international_carrier: str | None
 
     def to_dict(self): return asdict(self)
 
@@ -151,6 +153,26 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
 
     out_summary=_seg_summary(outbound)
     ret_summary=_seg_summary(inbound) if inbound else None
+
+    def international_carrier_for_slice(sl):
+        if not sl:
+            return None
+        segs = sl.get("segments") or []
+        chosen = None
+        for seg in segs:
+            o_country, d_country = _country(seg.get("origin")), _country(seg.get("destination"))
+            if (o_country == "US" and d_country == "JP") or (o_country == "JP" and d_country == "US"):
+                chosen = seg; break
+            if _iata(seg.get("origin")) in JP_AIRPORTS or _iata(seg.get("destination")) in JP_AIRPORTS:
+                chosen = seg
+        chosen = chosen or (segs[-1] if segs else None)
+        if not chosen:
+            return None
+        code, name = _carrier(chosen.get("operating_carrier"))
+        return f"{name} ({code})" if name and code else (name or code)
+
+    out_intl_carrier = international_carrier_for_slice(outbound)
+    ret_intl_carrier = international_carrier_for_slice(inbound) if inbound else None
     combined = f"OUT: {out_summary}" + (f" || RETURN: {ret_summary}" if ret_summary else "")
     return LiveItineraryFacts(
         offer_id=offer.get("id"), expires_at=expires, offer_minutes_remaining=remaining,
@@ -166,6 +188,7 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
         offer_owner_code=owner_code,offer_owner_name=owner_name,offer_live_mode=offer.get("live_mode"),
         international_departure_at=intl_seg.get("departing_at"),international_arrival_at=intl_seg.get("arriving_at"),
         connection_minutes=layovers,segment_summary=combined,outbound_summary=out_summary,return_summary=ret_summary,
+        outbound_international_carrier=out_intl_carrier,return_international_carrier=ret_intl_carrier,
     )
 
 

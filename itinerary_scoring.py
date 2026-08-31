@@ -212,8 +212,19 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
         }
         available = [(v, w) for v, w in components.values() if v is not None]
         total_w = sum(w for _, w in available)
-        overall = sum(float(v) * w for v, w in available) / total_w if total_w else 0.0
-        overall = round(overall, 1)
+        raw_overall = sum(float(v) * w for v, w in available) / total_w if total_w else 0.0
+
+        # Evidence-aware recommendation score. Missing history is not treated as bad
+        # performance, but it must not produce a misleading 100/100 recommendation
+        # simply because the live sandbox/offer is cheap or short. The cap communicates
+        # uncertainty while keeping the offer visible for price/schedule comparison.
+        confidence_caps = {
+            "VERY_HIGH": 100.0, "HIGH": 97.0, "MEDIUM": 94.0,
+            "LOW": 90.0, "LIMITED": 87.0, "UNAVAILABLE": 84.0,
+        }
+        evidence_confidence = str(hist.get("historical_data_confidence") or "UNAVAILABLE").upper()
+        evidence_cap = confidence_caps.get(evidence_confidence, 84.0)
+        overall = round(min(raw_overall, evidence_cap), 1)
 
         gateway = facts.get("international_gateway") or "?"
         dest = facts.get("japan_arrival_airport") or facts.get("destination") or "?"
@@ -237,6 +248,8 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
             "weight_connection": weights["connection"],
             "weight_duration": weights["duration"],
             "weight_price_value": weights["price_value"],
+            "score_before_evidence_cap": round(raw_overall, 1),
+            "evidence_confidence_cap": evidence_cap,
             "flightsmart_live_score": overall,
             "live_recommendation_band": _label(overall),
             "explanation_en": en,
