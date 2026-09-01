@@ -105,12 +105,20 @@ class LiveItineraryFacts:
     segment_summary: str
     outbound_summary: str
     return_summary: str | None
-    outbound_international_carrier: str | None
-    return_international_carrier: str | None
+    outbound_route_path: list[str]
+    return_route_path: list[str] | None
+    outbound_route_path_text: str
+    return_route_path_text: str | None
+    outbound_international_gateway: str | None
+    return_international_gateway: str | None
     outbound_international_carrier_code: str | None
     outbound_international_carrier_name: str | None
     return_international_carrier_code: str | None
     return_international_carrier_name: str | None
+    outbound_international_carrier: str | None
+    return_international_carrier: str | None
+    outbound_segment_details: list[dict[str, Any]]
+    return_segment_details: list[dict[str, Any]] | None
 
     def to_dict(self): return asdict(self)
 
@@ -158,29 +166,73 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
     out_summary=_seg_summary(outbound)
     ret_summary=_seg_summary(inbound) if inbound else None
 
-    def international_carrier_details_for_slice(sl):
+    def route_path_for_slice(sl):
         if not sl:
-            return None
+            return []
+        segs=sl.get("segments") or []
+        if not segs:
+            return []
+        path=[_iata(segs[0].get("origin"))]
+        path.extend(_iata(seg.get("destination")) for seg in segs)
+        return [x for x in path if x]
+
+    def international_details_for_slice(sl):
+        if not sl:
+            return {"code":None,"name":None,"label":None,"gateway":None}
         segs = sl.get("segments") or []
         chosen = None
         for seg in segs:
             o_country, d_country = _country(seg.get("origin")), _country(seg.get("destination"))
             if (o_country == "US" and d_country == "JP") or (o_country == "JP" and d_country == "US"):
                 chosen = seg; break
-            if _iata(seg.get("origin")) in JP_AIRPORTS or _iata(seg.get("destination")) in JP_AIRPORTS:
-                chosen = seg
+        if chosen is None:
+            for seg in segs:
+                if _iata(seg.get("origin")) in JP_AIRPORTS or _iata(seg.get("destination")) in JP_AIRPORTS:
+                    chosen = seg
         chosen = chosen or (segs[-1] if segs else None)
         if not chosen:
-            return None
+            return {"code":None,"name":None,"label":None,"gateway":None}
         code, name = _carrier(chosen.get("operating_carrier"))
-        label = f"{name} ({code})" if name and code else (name or code)
-        return code, name, label
+        origin_code,dest_code=_iata(chosen.get("origin")),_iata(chosen.get("destination"))
+        gateway = origin_code if origin_code not in JP_AIRPORTS else dest_code
+        label=f"{name} ({code})" if name and code else (name or code)
+        return {"code":code,"name":name,"label":label,"gateway":gateway}
 
-    out_intl_code, out_intl_name, out_intl_carrier = international_carrier_details_for_slice(outbound)
-    if inbound:
-        ret_intl_code, ret_intl_name, ret_intl_carrier = international_carrier_details_for_slice(inbound)
-    else:
-        ret_intl_code, ret_intl_name, ret_intl_carrier = None, None, None
+
+    def segment_details_for_slice(sl):
+        if not sl:
+            return []
+        segs = sl.get("segments") or []
+        layovers = _connections(segs)
+        details=[]
+        for i, seg in enumerate(segs):
+            op_code, op_name = _carrier(seg.get("operating_carrier"))
+            mk_code, mk_name = _carrier(seg.get("marketing_carrier"))
+            flight_no = seg.get("marketing_carrier_flight_number") or seg.get("operating_carrier_flight_number") or seg.get("flight_number")
+            details.append({
+                "origin": _iata(seg.get("origin")),
+                "destination": _iata(seg.get("destination")),
+                "departing_at": seg.get("departing_at"),
+                "arriving_at": seg.get("arriving_at"),
+                "duration_min": parse_iso_duration_minutes(seg.get("duration")),
+                "operating_carrier_code": op_code,
+                "operating_carrier_name": op_name,
+                "marketing_carrier_code": mk_code,
+                "marketing_carrier_name": mk_name,
+                "flight_number": str(flight_no) if flight_no is not None else None,
+                "is_us_japan_segment": ((_country(seg.get("origin")) == "US" and _country(seg.get("destination")) == "JP") or (_country(seg.get("origin")) == "JP" and _country(seg.get("destination")) == "US") or ((_iata(seg.get("origin")) not in JP_AIRPORTS) and (_iata(seg.get("destination")) in JP_AIRPORTS)) or ((_iata(seg.get("origin")) in JP_AIRPORTS) and (_iata(seg.get("destination")) not in JP_AIRPORTS))),
+                "layover_after_min": layovers[i] if i < len(layovers) else None,
+            })
+        return details
+
+    out_path=route_path_for_slice(outbound)
+    ret_path=route_path_for_slice(inbound) if inbound else None
+    out_segments_detail=segment_details_for_slice(outbound)
+    ret_segments_detail=segment_details_for_slice(inbound) if inbound else None
+    out_intl=international_details_for_slice(outbound)
+    ret_intl=international_details_for_slice(inbound) if inbound else {"code":None,"name":None,"label":None,"gateway":None}
+    out_intl_carrier=out_intl["label"]
+    ret_intl_carrier=ret_intl["label"]
     combined = f"OUT: {out_summary}" + (f" || RETURN: {ret_summary}" if ret_summary else "")
     return LiveItineraryFacts(
         offer_id=offer.get("id"), expires_at=expires, offer_minutes_remaining=remaining,
@@ -196,9 +248,13 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
         offer_owner_code=owner_code,offer_owner_name=owner_name,offer_live_mode=offer.get("live_mode"),
         international_departure_at=intl_seg.get("departing_at"),international_arrival_at=intl_seg.get("arriving_at"),
         connection_minutes=layovers,segment_summary=combined,outbound_summary=out_summary,return_summary=ret_summary,
+        outbound_route_path=out_path,return_route_path=ret_path,
+        outbound_route_path_text=" → ".join(out_path),return_route_path_text=(" → ".join(ret_path) if ret_path else None),
+        outbound_international_gateway=out_intl["gateway"],return_international_gateway=ret_intl["gateway"],
+        outbound_international_carrier_code=out_intl["code"],outbound_international_carrier_name=out_intl["name"],
+        return_international_carrier_code=ret_intl["code"],return_international_carrier_name=ret_intl["name"],
         outbound_international_carrier=out_intl_carrier,return_international_carrier=ret_intl_carrier,
-        outbound_international_carrier_code=out_intl_code,outbound_international_carrier_name=out_intl_name,
-        return_international_carrier_code=ret_intl_code,return_international_carrier_name=ret_intl_name,
+        outbound_segment_details=out_segments_detail,return_segment_details=ret_segments_detail,
     )
 
 

@@ -52,3 +52,25 @@
 - Added transparent confidence ceilings without treating missing data as bad performance.
 - Added outbound/return transpacific operating-carrier labels for mixed-airline itineraries.
 - Preserved the separate BTS evidence-first historical ranking.
+
+## Step 21 — Smart Japan Flight Choices
+- Added actual segment-path display and connection-aware route validation.
+- Added regional-origin gateway context to prevent misleading nonstop impressions.
+- Reframed airline choice as a transpacific-airline preference.
+- Added multi-select traveler priorities and combined adaptive weights.
+- Added traveler-friendly smart choice groups and diverse-results display.
+- Added Step 21 QA for Augusta-style feeder itineraries and ANA transpacific preference.
+
+## Step 22 — Real Route Guardrails
+- Added pair-level U.S.–Japan nonstop route validation.
+- Excludes synthetic Duffel test-mode direct routes not represented in BTS/T-100.
+- Added 34-pair U.S.–Japan route reference CSV.
+- Added exact origin→destination pre-search route messaging.
+- Added route-validation warnings and connection-gateway explanations.
+- Added exhaustive 350-airport route sanity QA.
+
+## Step 23 — Flight Result Cards & Route Reconstruction
+- Added per-segment operating/marketing carrier details.
+- Added outbound/return route reconstruction and layover display.
+- Added prominent Japan international segment labeling.
+- Preserved Step 22 route guardrails and evidence-aware scoring.

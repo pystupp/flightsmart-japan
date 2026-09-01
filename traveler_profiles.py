@@ -64,3 +64,26 @@ def get_profile(profile_key: str | None) -> dict:
 def profile_options(language: str = "日本語") -> dict[str, str]:
     label_key = "label_ja" if language == "日本語" else "label_en"
     return {key: value[label_key] for key, value in PROFILES.items()}
+
+
+def combine_profiles(profile_keys: list[str] | tuple[str, ...] | None) -> dict:
+    """Combine multiple explicit traveler priorities by averaging their weights.
+
+    No selection means the neutral best-overall profile. Selecting one or more
+    specific priorities does not silently add the best-overall profile.
+    """
+    keys=[k for k in (profile_keys or []) if k in PROFILES and k != "best_overall"]
+    if not keys:
+        return get_profile(DEFAULT_PROFILE)
+    dims=("historical","connection","duration","price_value")
+    weights={d:sum(PROFILES[k]["weights"][d] for k in keys)/len(keys) for d in dims}
+    total=sum(weights.values()) or 1.0
+    weights={d:weights[d]/total for d in dims}
+    return {
+        "key":"+".join(keys),
+        "label_en":" + ".join(PROFILES[k]["label_en"] for k in keys),
+        "label_ja":" + ".join(PROFILES[k]["label_ja"] for k in keys),
+        "weights":weights,
+        "description_en":"Combined traveler priorities selected by the user.",
+        "description_ja":"ユーザーが選択した複数の旅行優先事項を組み合わせて評価します。",
+    }

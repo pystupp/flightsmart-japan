@@ -10,11 +10,13 @@ import streamlit as st
 
 from airport_catalog import airport_options
 from duffel_client import create_offer_request
-from duffel_offer_adapter import extract_offers
+from duffel_offer_adapter import extract_offers, parse_offer
 from airline_coverage import summarize_airline_coverage
 from itinerary_scoring import evaluate_offers
 from traveler_profiles import DEFAULT_PROFILE, PROFILES
 from travel_calendar import travel_context, highest_level
+from route_validation import origin_gateway_context, route_pair_context, validate_itinerary_facts
+from smart_choices import build_choice_groups, diverse_options, preference_match
 
 APP_DIR = Path(__file__).resolve().parent
 DEMO_ONEWAY = APP_DIR / "sample_duffel_offers.json"
@@ -27,6 +29,14 @@ CABINS = {
     "economy": ("エコノミー", "Economy"), "premium_economy": ("プレミアムエコノミー", "Premium Economy"),
     "business": ("ビジネス", "Business"), "first": ("ファースト", "First"),
 }
+TRANS_PACIFIC_PREFS = {
+    "ANY": ("指定なし", "Any transpacific airline"),
+    "JP": ("日本系航空会社を希望", "Prefer a Japanese carrier"),
+    "NH": ("ANAを希望", "Prefer ANA"),
+    "JL": ("JALを希望", "Prefer Japan Airlines"),
+    "ZG": ("ZIPAIRを希望", "Prefer ZIPAIR"),
+}
+PRIORITY_KEYS = ["family", "fewer_connections", "reliability", "lowest_price", "shortest_time"]
 
 st.set_page_config(page_title="FlightSmart Japan", page_icon="✈️", layout="wide")
 
@@ -217,10 +227,28 @@ def show_historical_evidence(row: pd.Series, lang: str, expanded: bool = False) 
     st.caption(tr("※ 過去の運航実績は将来の遅延を予測するものではなく、候補便を比較するための参考根拠です。",
                   "Historical operating records do not predict a future delay; they are supporting evidence for comparing current offers.", lang))
 
+def priority_selector(lang: str) -> list[str]:
+    label_key="label_ja" if lang=="日本語" else "label_en"
+    selected=st.multiselect(
+        tr("大切にしたいこと（複数選択可）","What matters to you? Choose more than one",lang),
+        PRIORITY_KEYS,
+        default=[],
+        format_func=lambda k: PROFILES[k][label_key],
+        max_selections=3,
+        placeholder=tr("選択なし＝総合バランス","No selection = balanced overall",lang),
+    )
+    if selected:
+        labels=" + ".join(PROFILES[k][label_key] for k in selected)
+        st.caption(tr(f"選択した条件を組み合わせて評価します：{labels}",f"FlightSmart combines these priorities: {labels}",lang))
+    else:
+        st.caption(tr("選択しない場合は、運航実績・乗り継ぎ・時間・料金を総合的に評価します。","With no selections, FlightSmart uses a balanced overall comparison.",lang))
+    return selected
+
+
 def profile_selector(lang: str) -> str:
-    keys=list(PROFILES); label_key="label_ja" if lang=="日本語" else "label_en"; desc_key="description_ja" if lang=="日本語" else "description_en"
-    selected=st.selectbox(tr("今回の旅行で一番大切なことは？","What matters most for this trip?",lang),keys,index=keys.index(DEFAULT_PROFILE),format_func=lambda k:PROFILES[k][label_key])
-    st.caption(PROFILES[selected][desc_key]); return selected
+    # Backward-compatible helper used by older tests/components.
+    keys=list(PROFILES); label_key="label_ja" if lang=="日本語" else "label_en"
+    return st.selectbox(tr("今回の旅行で一番大切なことは？","What matters most for this trip?",lang),keys,index=keys.index(DEFAULT_PROFILE),format_func=lambda k:PROFILES[k][label_key])
 
 
 def load_demo_payload(round_trip: bool) -> dict:
@@ -234,6 +262,73 @@ def show_travel_context(d: date, lang: str, title: str) -> None:
     labels=" / ".join(e["label_ja" if lang=="日本語" else "label_en"] for e in events)
     st.warning(f"{icon} **{title}:** {labels}")
 
+
+
+def _fmt_clock(value: str | None) -> str:
+    if not value:
+        return "—"
+    try:
+        # Keep local clock represented in the Duffel timestamp; do not relabel timezone.
+        return str(value).replace("T", " ")[:16]
+    except Exception:
+        return str(value)
+
+
+def _segment_carrier_text(seg: dict, lang: str) -> tuple[str, str | None]:
+    op_name = seg.get("operating_carrier_name") or seg.get("operating_carrier_code") or "—"
+    op_code = seg.get("operating_carrier_code") or ""
+    mk_name = seg.get("marketing_carrier_name") or seg.get("marketing_carrier_code")
+    mk_code = seg.get("marketing_carrier_code") or ""
+    flight = seg.get("flight_number")
+    operating = f"{op_name}" + (f" ({op_code})" if op_code and op_code not in str(op_name) else "")
+    if flight:
+        display_code = mk_code or op_code
+        operating += f" · {display_code}{flight}" if display_code else f" · {flight}"
+    marketing = None
+    if mk_name and (mk_code != op_code or str(mk_name).lower() != str(op_name).lower()):
+        marketing = tr(f"販売: {mk_name}" + (f" ({mk_code})" if mk_code else ""),
+                       f"Marketed by {mk_name}" + (f" ({mk_code})" if mk_code else ""), lang)
+    return operating, marketing
+
+
+def render_journey_segments(row: pd.Series, lang: str, direction: str) -> None:
+    details = row.get(f"{direction}_segment_details") or []
+    route_text = row.get(f"{direction}_route_path_text") or "—"
+    stops = int(row.get(f"{direction}_stop_count") or 0)
+    duration = duration_label(row.get(f"{direction}_duration_min"), lang)
+    title = tr("往路", "Outbound", lang) if direction == "outbound" else tr("復路", "Return", lang)
+    stop_text = tr("直行", "Nonstop", lang) if stops == 0 else tr(f"乗り継ぎ {stops}回", f"{stops} stop" + ("s" if stops != 1 else ""), lang)
+    st.markdown(f"**{title}: {route_text}**  ·  **{stop_text}**  ·  {duration}")
+    if not details:
+        return
+    for idx, seg in enumerate(details):
+        op_text, marketing = _segment_carrier_text(seg, lang)
+        is_tp = bool(seg.get("is_us_japan_segment"))
+        prefix = "🇯🇵 **" + tr("日本行きの主区間", "Main Japan international segment", lang) + "** · " if is_tp else ""
+        route = f"{seg.get('origin') or '?'} → {seg.get('destination') or '?'}"
+        st.markdown(f"{prefix}**{route}** — {op_text}")
+        meta=[]
+        if marketing:
+            meta.append(marketing)
+        if seg.get("departing_at") and seg.get("arriving_at"):
+            meta.append(f"{_fmt_clock(seg.get('departing_at'))} → {_fmt_clock(seg.get('arriving_at'))}")
+        if seg.get("duration_min") is not None:
+            meta.append(duration_label(seg.get("duration_min"), lang))
+        if meta:
+            st.caption(" · ".join(meta))
+        lay = seg.get("layover_after_min")
+        if lay is not None and idx < len(details)-1:
+            conn_airport = seg.get("destination") or "?"
+            st.caption(tr(f"↳ {conn_airport}で乗り継ぎ {duration_label(lay, lang)}",
+                          f"↳ Connect at {conn_airport}: {duration_label(lay, lang)}", lang))
+
+
+def render_route_reconstruction(row: pd.Series, lang: str) -> None:
+    st.markdown(tr("#### 実際の旅程", "#### Actual itinerary", lang))
+    render_journey_segments(row, lang, "outbound")
+    if row.get("return_segment_details"):
+        st.markdown("---")
+        render_journey_segments(row, lang, "return")
 
 def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
     carrier=row.get("operating_carrier_name") or row.get("operating_carrier_code") or "—"; score=float(row["flightsmart_live_score"])
@@ -266,9 +361,15 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
         marketing=row.get("marketing_carrier_name") or row.get("marketing_carrier_code")
         if marketing and str(marketing) != str(carrier):
             st.caption(f"{tr('販売航空会社','Marketing carrier',lang)}: {marketing}")
-        st.caption(row.get("segment_summary") or "—")
-        c1,c2,c3,c4=st.columns(4)
-        c1.metric(tr("料金","Price",lang),money(row.get("total_currency"),row.get("total_amount")))
+        render_route_reconstruction(row, lang)
+        route_note=row.get("route_validation_warning_ja" if lang=="日本語" else "route_validation_warning_en")
+        route_status=row.get("route_validation_status")
+        if isinstance(route_note,str) and route_note:
+            if route_status in {"LIVE_UNCONFIRMED_DIRECT","CONNECTION_WITH_UNCONFIRMED_US_JP_SEGMENT","ROUTE_UNDETERMINED"}:
+                st.warning(route_note)
+            else:
+                st.caption(route_note)
+
         c2.metric(tr("合計乗り継ぎ","Total connections",lang),int(row.get("stop_count",0)))
         c3.metric(tr("合計飛行旅程時間","Total itinerary duration",lang),duration_label(row.get("total_duration_min"),lang))
         c4.metric(tr("BTSデータ信頼度","BTS evidence confidence",lang),confidence_label(row.get("historical_data_confidence"),lang))
@@ -337,7 +438,7 @@ with r4:
     else:
         st.text_input(tr("帰国日","Return",lang),value=tr("片道","One way",lang),disabled=True)
 
-s1,s2,s3,s4=st.columns([1.05,1.15,1.35,1.1])
+s1,s2,s3,s4,s5=st.columns([.9,1.05,1.15,1.55,1.0])
 with s1:
     passenger_count=st.number_input(tr("旅行者","Travelers",lang),min_value=1,max_value=6,value=1,step=1)
 with s2:
@@ -345,7 +446,14 @@ with s2:
 with s3:
     max_conn=st.selectbox(tr("乗り継ぎ","Connections",lang),[0,1,2],index=1,format_func=lambda n:tr("直行便のみ" if n==0 else f"最大{n}回", "Nonstop only" if n==0 else f"Up to {n}",lang))
 with s4:
+    airline_pref=st.selectbox(
+        tr("太平洋横断便の希望航空会社","Preferred transpacific airline",lang),
+        list(TRANS_PACIFIC_PREFS),
+        format_func=lambda k:TRANS_PACIFIC_PREFS[k][0 if lang=="日本語" else 1],
+    )
+with s5:
     mode=st.selectbox(tr("検索データ","Search data",lang),["live","demo"],format_func=lambda x:tr("ライブ検索" if x=="live" else "デモ","Live search" if x=="live" else "Demo",lang))
+st.caption(tr("※ 航空会社の希望は、主な米国↔日本区間に適用します。最初の米国内区間は別の航空会社になる場合があります。","Airline preference applies to the main U.S.–Japan segment. Your first U.S. feeder flight may be operated by another airline.",lang))
 
 passenger_ages=[]
 with st.expander(tr("旅行者の年齢を設定（お子様連れはこちら）","Passenger ages (including children)",lang),expanded=int(passenger_count)>1):
@@ -357,7 +465,7 @@ with st.expander(tr("旅行者の年齢を設定（お子様連れはこちら�
 
 p1,p2=st.columns([2.2,1])
 with p1:
-    profile=profile_selector(lang)
+    priorities=priority_selector(lang)
 with p2:
     search=st.button(tr("フライトを比較する","Compare flights",lang),type="primary",use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
@@ -365,6 +473,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.caption(tr("FlightSmart Scoreは候補便を比較するための意思決定サポートです。将来の遅延予測や予約保証ではありません。","FlightSmart Score is decision support for comparing offers, not a future delay forecast or booking guarantee.",lang))
 show_travel_context(depart_date,lang,tr("出発日の旅行情報","Departure-date travel context",lang))
 if return_date: show_travel_context(return_date,lang,tr("帰国日の旅行情報","Return-date travel context",lang))
+route_ctx=route_pair_context(origin,destination)
+if not route_ctx["is_historical_nonstop_pair"]:
+    st.info(tr(
+        f"✈️ {origin}→{destination} は現在のFlightSmart BTS/T-100日米直行路線参照にはありません。**直行便とは表示せず**、検索結果の実際の区間を確認して、乗り継ぎ空港と日本行き区間を表示します。",
+        f"✈️ {origin}→{destination} is not in FlightSmart's current BTS/T-100 U.S.–Japan nonstop-route reference. FlightSmart will **not label it as nonstop**; it will validate the returned segments and show the connection gateway and Japan-bound segment.",lang))
 
 # Persist the most recent result so users can change tabs/sort without losing it.
 if search:
@@ -380,11 +493,24 @@ if search:
                     st.error(tr("Duffelトークンが設定されていません。","No Duffel token is configured.",lang)); st.stop()
                 payload=create_offer_request(origin=origin,destination=destination,departure_date=depart_date.isoformat(),return_date=return_date.isoformat() if return_date else None,passenger_ages=passenger_ages,cabin_class=cabin,max_connections=int(max_conn),token=token)
             offers=extract_offers(payload)
-            ranked=evaluate_offers(offers,profile_key=profile)
+            # Step 22: Duffel sandbox can return synthetic direct routes. Evaluate only
+            # route-plausible offers; live unreferenced routes remain visible with a warning.
+            rejected_routes=[]
+            allowed_offers=[]
+            for _offer in offers:
+                _facts=parse_offer(_offer).to_dict()
+                _route=validate_itinerary_facts(_facts)
+                if _route.get("route_recommendation_allowed", True):
+                    allowed_offers.append(_offer)
+                else:
+                    rejected_routes.append({**_facts, **_route})
+            ranked=evaluate_offers(allowed_offers,profile_keys=priorities)
             coverage=summarize_airline_coverage(offers)
+            coverage["rejected_route_count"]=len(rejected_routes)
+            coverage["rejected_routes"]=rejected_routes[:20]
             st.session_state["fs_ranked"]=ranked
             st.session_state["fs_coverage"]=coverage
-            st.session_state["fs_search_meta"]={"origin":origin,"destination":destination,"depart":depart_date,"return":return_date,"trip":trip,"profile":profile,"mode":mode,"ages":passenger_ages,"cabin":cabin,"max_conn":int(max_conn)}
+            st.session_state["fs_search_meta"]={"origin":origin,"destination":destination,"depart":depart_date,"return":return_date,"trip":trip,"profile":(priorities[0] if len(priorities)==1 else DEFAULT_PROFILE),"priorities":priorities,"airline_pref":airline_pref,"mode":mode,"ages":passenger_ages,"cabin":cabin,"max_conn":int(max_conn)}
     except Exception as exc:
         st.error(tr("検索または分析中にエラーが発生しました。","An error occurred while searching or scoring offers.",lang)); st.code(str(exc))
 
@@ -395,24 +521,41 @@ meta=st.session_state.get("fs_search_meta")
 if isinstance(ranked,pd.DataFrame) and not ranked.empty:
     if coverage.get("is_test_mode"):
         st.warning(tr("🧪 Duffelテストモードの結果です。表示される航空会社・料金は実在庫を表しません。","🧪 Duffel test-mode results do not represent real airline inventory or fares.",lang))
+    if coverage.get("rejected_route_count",0):
+        st.warning(tr(
+            f"🛫 テストモードで返されたうち {coverage.get('rejected_route_count')} 件は、BTS/T-100日米直行路線参照と矛盾する架空の直行ルートだったため、おすすめ候補から除外しました。",
+            f"🛫 {coverage.get('rejected_route_count')} test-mode offer(s) claimed a nonstop U.S.-Japan route that conflicts with the BTS/T-100 route reference, so FlightSmart excluded them from recommendations.",lang))
 
-    st.markdown('<div class="fs-section-title">あなたに合う選択肢 / Best choices for you</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fs-section-sub">まず3つの見方から選べます。詳しいスコアを理解しなくても比較できます。</div>' if lang=="日本語" else '<div class="fs-section-sub">Start with three simple views. You do not need to understand the scoring model to compare flights.</div>',unsafe_allow_html=True)
+    st.markdown('<div class="fs-section-title">あなたに合う選択肢 / Smart choices for you</div>',unsafe_allow_html=True)
+    st.markdown('<div class="fs-section-sub">1位だけではなく、「家族向け」「移動が楽」「価格とのバランス」「日本系航空会社」など、違う理由で選べる候補を並べます。</div>' if lang=="日本語" else '<div class="fs-section-sub">Instead of one endless ranking, FlightSmart highlights different useful choices: family-friendly, easiest, best value, strong history, and Japanese-carrier options when returned.</div>',unsafe_allow_html=True)
+
+    pref=meta.get("airline_pref","ANY") if meta else "ANY"
+    choices=build_choice_groups(ranked,pref)
+    if choices:
+        cols=st.columns(min(3,len(choices)))
+        for i,ch in enumerate(choices):
+            row=ch["row"]
+            with cols[i%len(cols)]:
+                with st.container(border=True):
+                    st.markdown("### "+(ch["label_ja"] if lang=="日本語" else ch["label_en"]))
+                    st.markdown(f"**{row.get('outbound_route_path_text') or row.get('outbound_summary') or '—'}**")
+                    carrier=row.get("outbound_international_carrier") or row.get("operating_carrier_name") or "—"
+                    st.caption(tr(f"太平洋横断便: {carrier}",f"Transpacific: {carrier}",lang))
+                    st.metric(tr("料金","Price",lang),money(row.get("total_currency"),row.get("total_amount")))
+                    st.caption((ch["reason_ja"] if lang=="日本語" else ch["reason_en"]))
+                    st.caption(tr(f"乗り継ぎ {int(row.get('outbound_stop_count',0) or 0)}回 · {duration_label(row.get('total_duration_min'),lang)}",f"{int(row.get('outbound_stop_count',0) or 0)} outbound connection(s) · {duration_label(row.get('total_duration_min'),lang)}",lang))
 
     cheapest=ranked.sort_values("total_amount",na_position="last").iloc[0]
     quickest=ranked.sort_values("total_duration_min",na_position="last").iloc[0]
     ranked_choices=ranked[ranked.get("is_ranked_choice", True) == True] if "is_ranked_choice" in ranked.columns else ranked
-    best=ranked_choices.iloc[0] if not ranked_choices.empty else ranked.iloc[0]
-    c1,c2,c3=st.columns(3)
-    with c1:
-        with st.container(border=True):
-            st.markdown("### 💴 "+tr("最安値","Cheapest",lang)); st.metric(tr("料金","Price",lang),money(cheapest.get("total_currency"),cheapest.get("total_amount"))); st.caption((cheapest.get("operating_carrier_name") or "—")+" · "+duration_label(cheapest.get("total_duration_min"),lang))
-    with c2:
-        with st.container(border=True):
-            st.markdown("### ⭐ "+tr("おすすめ","Recommended",lang)); st.metric("FlightSmart",f"{float(best['flightsmart_live_score']):.1f}/100"); st.caption((best.get("operating_carrier_name") or "—")+" · "+money(best.get("total_currency"),best.get("total_amount")))
-    with c3:
-        with st.container(border=True):
-            st.markdown("### ⏱ "+tr("最短時間","Quickest",lang)); st.metric(tr("所要時間","Duration",lang),duration_label(quickest.get("total_duration_min"),lang)); st.caption((quickest.get("operating_carrier_name") or "—")+" · "+money(quickest.get("total_currency"),quickest.get("total_amount")))
+    best=ranked.sort_values("flightsmart_live_score",ascending=False,na_position="last").iloc[0]
+
+    if pref != "ANY":
+        matches=ranked[ranked.apply(lambda r: preference_match(r,pref),axis=1)]
+        if matches.empty:
+            st.warning(tr("選択した太平洋横断航空会社を含む旅程は、今回の検索では返されませんでした。他の候補は引き続き比較できます。","No itinerary matching your transpacific-airline preference was returned in this search. Other valid choices are still shown.",lang))
+        else:
+            st.success(tr(f"希望航空会社を含む候補：{len(matches)}件",f"Options matching your airline preference: {len(matches)}",lang))
 
     st.markdown('<div class="fs-reco">',unsafe_allow_html=True)
     st.markdown("### ⭐ "+tr("FlightSmartのおすすめ","FlightSmart recommendation",lang))
@@ -477,7 +620,7 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
                             rows.append({"depart":dd,"return":rd,"price":None,"currency":""}); prog.progress(done/total); continue
                         try:
                             pp=create_offer_request(origin=meta["origin"],destination=meta["destination"],departure_date=dd.isoformat(),return_date=rd.isoformat(),passenger_ages=meta["ages"],cabin_class=meta["cabin"],max_connections=meta["max_conn"],token=token)
-                            oo=extract_offers(pp); rr=evaluate_offers(oo,profile_key=meta["profile"])
+                            oo=extract_offers(pp); rr=evaluate_offers(oo,profile_keys=meta.get("priorities",[]))
                             if not rr.empty:
                                 low=rr.sort_values("total_amount",na_position="last").iloc[0]
                                 rows.append({"depart":dd,"return":rd,"price":float(low["total_amount"]),"currency":low.get("total_currency") or ""})
@@ -514,23 +657,15 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
 
     st.markdown('<div class="fs-section-title">✈️ 候補便を比較 / Compare flight options</div>',unsafe_allow_html=True)
     view=st.segmented_control(tr("並び替え","Sort",lang),["recommended","cheapest","quickest"],default="recommended",format_func=lambda x:{"recommended":tr("⭐ おすすめ","⭐ Recommended",lang),"cheapest":tr("💴 最安値","💴 Cheapest",lang),"quickest":tr("⏱ 最短時間","⏱ Quickest",lang)}[x]) or "recommended"
-    shown=ranked if view=="recommended" else ranked.sort_values("total_amount" if view=="cheapest" else "total_duration_min",na_position="last")
-    for pos,(_,row) in enumerate(shown.head(8).iterrows()): result_card(row,lang,is_top=(pos==0 and view=="recommended"))
+    base_shown=ranked.sort_values("flightsmart_live_score",ascending=False,na_position="last") if view=="recommended" else ranked.sort_values("total_amount" if view=="cheapest" else "total_duration_min",na_position="last")
+    shown=diverse_options(base_shown,limit=10)
+    st.caption(tr("似た旅程を何件も続けて表示せず、経路や太平洋横断航空会社が異なる候補を優先して表示します。","FlightSmart prioritizes route and airline variety instead of filling the list with near-duplicate offers.",lang))
+    for pos,(_,row) in enumerate(shown.iterrows()): result_card(row,lang,is_top=(pos==0 and view=="recommended"))
 
     with st.expander(tr("📊 おすすめの根拠：BTSの過去実績を見る","📊 Why recommended: see BTS historical evidence",lang),expanded=False):
         show_historical_evidence(best,lang)
     with st.expander(tr("検索で返された航空会社を確認","See airlines returned in this search",lang)):
-        st.caption(tr("日米区間を実際に運航する航空会社を往路・復路の両方から確認します。","Checks the operating carrier on the transpacific segment in both directions.",lang))
-        st.write(coverage.get("transpacific_counts",{}) or coverage.get("operating_counts",{}))
-        jp_status=coverage.get("japanese_status",{})
-        if jp_status:
-            labels=[]
-            for code in ("NH","JL","ZG"):
-                item=jp_status.get(code,{})
-                mark="✅" if item.get("present") else "—"
-                labels.append(f"{mark} {item.get('label',code)} ({code})")
-            st.markdown(tr("**今回の検索で返された日本系航空会社:** ","**Japanese carriers returned in this search:** ",lang)+" · ".join(labels))
-            st.caption(tr("— はDuffelアカウントで利用不可という意味ではなく、この検索結果にその航空会社の運航区間が含まれなかったことだけを示します。","A dash does not mean the airline is unavailable in your Duffel account; it only means no operating segment from that carrier appeared in this search result.",lang))
+        st.write(coverage.get("operating_counts",{}))
 else:
     st.markdown('<div class="fs-section-title">FlightSmartでできること</div>',unsafe_allow_html=True)
     a,b,c=st.columns(3)

@@ -1,0 +1,35 @@
+ORIGIN,ORIGIN_CITY_NAME,DEST,DEST_CITY_NAME,carriers,carrier_codes,historical_passengers,months_observed
+ATL,"Atlanta, GA",HND,"Tokyo, Japan",Delta Air Lines Inc.,DL,37082,5
+BOS,"Boston, MA",NRT,"Tokyo, Japan",Japan Air Lines Co. Ltd.,JL,24192,5
+DEN,"Denver, CO",NRT,"Tokyo, Japan",United Air Lines Inc.,UA,35495,5
+DFW,"Dallas/Fort Worth, TX",HND,"Tokyo, Japan",American Airlines Inc. | Japan Air Lines Co. Ltd.,AA | JL,55967,5
+DFW,"Dallas/Fort Worth, TX",NRT,"Tokyo, Japan",American Airlines Inc.,AA,32964,5
+DTW,"Detroit, MI",HND,"Tokyo, Japan",Delta Air Lines Inc.,DL,34694,5
+EWR,"Newark, NJ",HND,"Tokyo, Japan",United Air Lines Inc.,UA,35051,5
+EWR,"Newark, NJ",NRT,"Tokyo, Japan",United Air Lines Inc.,UA,35068,5
+GUM,"Guam, TT",HND,"Tokyo, Japan",United Air Lines Inc.,UA,18223,5
+GUM,"Guam, TT",KIX,"Osaka, Japan",United Air Lines Inc.,UA,18438,5
+GUM,"Guam, TT",NGO,"Nagoya, Japan",United Air Lines Inc.,UA,10981,5
+GUM,"Guam, TT",NRT,"Tokyo, Japan",Japan Air Lines Co. Ltd. | United Air Lines Inc.,JL | UA,76337,5
+HNL,"Honolulu, HI",HND,"Tokyo, Japan",Alaska Airlines Inc. | All Nippon Airways Co. | Delta Air Lines Inc. | Japan Air Lines Co. Ltd.,AS | DL | JL | NH,179404,5
+HNL,"Honolulu, HI",KIX,"Osaka, Japan",Alaska Airlines Inc. | Japan Air Lines Co. Ltd.,AS | JL,57367,5
+HNL,"Honolulu, HI",NGO,"Nagoya, Japan",Japan Air Lines Co. Ltd.,JL,18742,5
+HNL,"Honolulu, HI",NRT,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd. | ZIPAIR Tokyo Inc.,JL | NH | ZG,141391,5
+IAD,"Washington, DC",HND,"Tokyo, Japan",All Nippon Airways Co. | United Air Lines Inc.,NH | UA,56167,5
+IAH,"Houston, TX",HND,"Tokyo, Japan",All Nippon Airways Co.,NH,28902,5
+IAH,"Houston, TX",NRT,"Tokyo, Japan",United Air Lines Inc. | ZIPAIR Tokyo Inc.,UA | ZG,49038,5
+JFK,"New York, NY",HND,"Tokyo, Japan",All Nippon Airways Co. | American Airlines Inc. | Japan Air Lines Co. Ltd.,AA | JL | NH,147586,5
+LAX,"Los Angeles, CA",HND,"Tokyo, Japan",All Nippon Airways Co. | American Airlines Inc. | Delta Air Lines Inc. | Japan Air Lines Co. Ltd. | United Air Lines Inc.,AA | DL | JL | NH | UA,241527,5
+LAX,"Los Angeles, CA",KIX,"Osaka, Japan",Japan Air Lines Co. Ltd.,JL,23543,5
+LAX,"Los Angeles, CA",NRT,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd. | Singapore Airlines Ltd. | United Air Lines Inc. | ZIPAIR Tokyo Inc.,JL | NH | SQ | UA | ZG,156849,5
+MSP,"Minneapolis, MN",HND,"Tokyo, Japan",Delta Air Lines Inc.,DL,31700,5
+ORD,"Chicago, IL",HND,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd. | United Air Lines Inc.,JL | NH | UA,94979,5
+ORD,"Chicago, IL",NRT,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd.,JL | NH,52338,5
+SAN,"San Diego, CA",NRT,"Tokyo, Japan",Japan Air Lines Co. Ltd.,JL,16203,5
+SEA,"Seattle, WA",HND,"Tokyo, Japan",All Nippon Airways Co. | Delta Air Lines Inc.,DL | NH,67406,5
+SEA,"Seattle, WA",NRT,"Tokyo, Japan",Alaska Airlines Inc. | Japan Air Lines Co. Ltd.,AS | JL,60394,5
+SFO,"San Francisco, CA",HND,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd. | United Air Lines Inc.,JL | NH | UA,88301,5
+SFO,"San Francisco, CA",KIX,"Osaka, Japan",United Air Lines Inc.,UA,32112,5
+SFO,"San Francisco, CA",NRT,"Tokyo, Japan",All Nippon Airways Co. | Japan Air Lines Co. Ltd. | United Air Lines Inc. | ZIPAIR Tokyo Inc.,JL | NH | UA | ZG,118297,5
+SJC,"San Jose, CA",NRT,"Tokyo, Japan",ZIPAIR Tokyo Inc.,ZG,11128,4
+SPN,"Saipan, TT",NRT,"Tokyo, Japan",United Air Lines Inc.,UA,5269,4

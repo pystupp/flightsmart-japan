@@ -12,7 +12,8 @@ import math
 import pandas as pd
 
 from duffel_offer_adapter import parse_offer
-from traveler_profiles import get_profile
+from traveler_profiles import get_profile, combine_profiles
+from route_validation import validate_itinerary_facts
 
 DEFAULT_ROUTE_FILE = Path(__file__).resolve().parent / "score_v2" / "flightsmart_app_routes_v2.csv"
 
@@ -187,12 +188,17 @@ def _label(score: float) -> str:
     return "WEAK"
 
 
-def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | None = None, profile_key: str = "best_overall") -> pd.DataFrame:
+def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | None = None, profile_key: str = "best_overall", profile_keys: list[str] | None = None) -> pd.DataFrame:
     if route_scores is None:
         route_scores = load_historical_scores()
-    profile = get_profile(profile_key)
+    profile = combine_profiles(profile_keys) if profile_keys is not None else get_profile(profile_key)
     weights = profile["weights"]
-    facts_list = [parse_offer(o).to_dict() for o in offers]
+    facts_list = []
+    for o in offers:
+        facts = parse_offer(o).to_dict()
+        facts.update(validate_itinerary_facts(facts))
+        if facts.get("route_recommendation_allowed", True):
+            facts_list.append(facts)
     prices = [f["total_amount"] for f in facts_list]
     durations = [f["total_duration_min"] for f in facts_list]
 
@@ -226,14 +232,22 @@ def evaluate_offers(offers: list[dict[str, Any]], route_scores: pd.DataFrame | N
         evidence_cap = confidence_caps.get(evidence_confidence, 84.0)
         overall = round(min(raw_overall, evidence_cap), 1)
 
-        gateway = facts.get("international_gateway") or "?"
+        gateway = facts.get("international_gateway") or facts.get("outbound_international_gateway") or "?"
         dest = facts.get("japan_arrival_airport") or facts.get("destination") or "?"
         carrier = facts.get("operating_carrier_name") or facts.get("operating_carrier_code") or "the operating carrier"
-        stops = facts["stop_count"]
-        stop_en = "nonstop" if stops == 0 else f"{stops} connection" + ("s" if stops != 1 else "")
-        stop_ja = "直行" if stops == 0 else f"乗り継ぎ{stops}回"
-        en = f"{carrier}: {gateway}→{dest} international segment; {stop_en} from the searched origin. Historical evidence is {hist['historical_data_confidence'].lower()} confidence. This ranking uses the '{profile['label_en']}' traveler profile. Live price and duration are scored relative to the offers returned in this search."
-        ja = f"{carrier}：国際区間は{gateway}→{dest}、検索した出発地からは{stop_ja}です。履歴データの信頼度は{hist['historical_data_confidence']}です。今回は「{profile['label_ja']}」の旅行者設定で評価しています。料金と所要時間は、今回取得した候補便の中で相対評価しています。"
+        out_stops = int(facts.get("outbound_stop_count") or 0)
+        out_path = facts.get("outbound_route_path_text") or facts.get("outbound_summary") or "?"
+        if out_stops == 0 and facts.get("route_reference_nonstop_pair"):
+            route_en = f"nonstop from the searched origin ({out_path})"
+            route_ja = f"検索した出発地から直行（{out_path}）"
+        elif out_stops > 0:
+            route_en = f"{out_stops} connection" + ("s" if out_stops != 1 else "") + f" from the searched origin ({out_path})"
+            route_ja = f"検索した出発地から乗り継ぎ{out_stops}回（{out_path}）"
+        else:
+            route_en = f"route returned as {out_path}; nonstop status is not confirmed by the current BTS/T-100 route reference"
+            route_ja = f"返された経路は{out_path}ですが、現在のBTS/T-100路線参照では直行便として確認できません"
+        en = f"{carrier}: U.S.-Japan segment {gateway}→{dest}; {route_en}. Historical evidence is {hist['historical_data_confidence'].lower()} confidence. This ranking uses the '{profile['label_en']}' traveler profile. Live price and duration are scored relative to the offers returned in this search."
+        ja = f"{carrier}：日米区間は{gateway}→{dest}、{route_ja}です。履歴データの信頼度は{hist['historical_data_confidence']}です。今回は「{profile['label_ja']}」の旅行者設定で評価しています。料金と所要時間は、今回取得した候補便の中で相対評価しています。"
 
         row = {
             **facts,

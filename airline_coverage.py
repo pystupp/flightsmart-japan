@@ -23,20 +23,8 @@ def summarize_airline_coverage(offers: list[dict[str, Any]]) -> dict[str, Any]:
         if f.get("offer_live_mode") is not None:
             live_flags.append(bool(f.get("offer_live_mode")))
 
-    # Count Japanese carriers on the actual transpacific segments in either direction.
-    # This avoids hiding ANA/JAL when a U.S. carrier operates the outbound segment but
-    # the Japanese carrier operates the return (or vice versa).
     present_codes = {str(f.get("operating_carrier_code") or "").upper() for f in facts}
     present_codes |= {str(f.get("marketing_carrier_code") or "").upper() for f in facts}
-    present_codes |= {str(f.get("outbound_international_carrier_code") or "").upper() for f in facts}
-    present_codes |= {str(f.get("return_international_carrier_code") or "").upper() for f in facts}
-    transpacific = Counter()
-    for f in facts:
-        for direction in ("outbound", "return"):
-            code = str(f.get(f"{direction}_international_carrier_code") or "").upper()
-            name = f.get(f"{direction}_international_carrier_name")
-            if code or name:
-                transpacific[f"{name} ({code})" if name and code else (name or code)] += 1
     japanese_status = {
         code: {"label": label, "present": code in present_codes}
         for code, label in JAPAN_CARRIER_CODES.items()
@@ -56,6 +44,5 @@ def summarize_airline_coverage(offers: list[dict[str, Any]]) -> dict[str, Any]:
         "operating_counts": dict(operating.most_common()),
         "marketing_counts": dict(marketing.most_common()),
         "owner_counts": dict(owners.most_common()),
-        "transpacific_counts": dict(transpacific.most_common()),
         "japanese_status": japanese_status,
     }
