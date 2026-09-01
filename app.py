@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 from datetime import date, timedelta
@@ -45,7 +46,7 @@ st.markdown("""
 .block-container {max-width: 1320px; padding-top: 1.1rem; padding-bottom: 3rem;}
 [data-testid="stMetric"] {background: rgba(127,127,127,.06); border-radius: 14px; padding: .65rem .8rem;}
 [data-testid="stSidebar"] {min-width: 320px;}
-.fs-hero {padding: 1.45rem 1.6rem; border: 1px solid #dfe7ef; border-radius: 22px; margin-bottom: 1.1rem; background: linear-gradient(135deg,#ffffff 0%,#f6fbff 100%); box-shadow:0 8px 28px rgba(20,54,90,.06);}
+.fs-hero {padding: 2.15rem 1.8rem; border: 1px solid #dfe7ef; border-radius: 22px; margin-bottom: 1.1rem; background-size: cover; background-position: center 54%; box-shadow:0 8px 28px rgba(20,54,90,.10); position:relative; overflow:hidden;}\n.fs-hero::before {content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,.94) 0%,rgba(255,255,255,.82) 52%,rgba(255,255,255,.40) 100%);}\n.fs-hero > * {position:relative; z-index:1;}\n.fs-hero .fs-kicker {display:inline-block; background:rgba(255,255,255,.74); padding:.22rem .58rem; border-radius:999px;}\n.fs-hero .fs-sub {max-width:820px;}
 .fs-kicker {font-size:.86rem; opacity:.75; letter-spacing:.04em; text-transform:uppercase;}
 .fs-title {font-size:2.15rem; font-weight:800; margin:.15rem 0 .35rem 0; color:#102a43;}
 .fs-sub {opacity:.82; line-height:1.55;}
@@ -406,7 +407,12 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
 
 
 
-st.markdown("""<div class="fs-hero"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub"><span class="fs-ja">日本行きのフライトを、安さだけでなく「選びやすさ」まで。</span><br><span class="fs-en">Compare U.S.–Japan flights by price, travel time, connections, and historical operating evidence.</span></div></div>""", unsafe_allow_html=True)
+_hero_path = Path(__file__).parent / "assets" / "fuji_sakura_hero.png"
+_hero_style = ""
+if _hero_path.exists():
+    _hero_b64 = base64.b64encode(_hero_path.read_bytes()).decode("ascii")
+    _hero_style = f"background-image:url('data:image/png;base64,{_hero_b64}');"
+st.markdown(f"""<div class="fs-hero" style="{_hero_style}"><div class="fs-kicker">Public beta · パブリックベータ</div><div class="fs-title">FlightSmart Japan 🇺🇸 ✈️ 🇯🇵</div><div class="fs-sub"><span class="fs-ja">日本行きのフライトを、安さだけでなく「選びやすさ」まで。</span><br><span class="fs-en">Compare U.S.–Japan flights by price, travel time, connections, and historical operating evidence.</span></div></div>""", unsafe_allow_html=True)
 
 lang=st.segmented_control("Language / 言語",["日本語","English"],default="日本語") or "日本語"
 
@@ -421,26 +427,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Step 24: Japan-memory visual strip. Original imagery created for FlightSmart.
-st.markdown('<div class="fs-section-title">🌸 '+tr("日本を思い出す景色", "A little piece of Japan", lang)+'</div>', unsafe_allow_html=True)
-st.markdown('<div class="fs-section-sub">'+tr("帰る前から、少しだけ日本を感じられるように。季節や地域の景色を眺めながら、旅のイメージを膨らませてください。", "A few familiar scenes to bring the feeling of Japan into your trip planning.", lang)+'</div>', unsafe_allow_html=True)
-_memory_dir = Path(__file__).parent / "assets" / "japan_memories"
-_memory_cards = [
-    ("osaka_sakura.png", "大阪・桜", "Osaka · Sakura"),
-    ("kyoto_bamboo.png", "京都・竹林", "Kyoto · Bamboo grove"),
-    ("fuji_autumn.png", "富士山・紅葉", "Mt. Fuji · Autumn"),
-    ("miyajima_torii.png", "宮島・大鳥居", "Miyajima · Torii"),
-    ("shirakawago_snow.png", "白川郷・雪景色", "Shirakawa-go · Snow"),
-]
-_mem_cols = st.columns(5)
-for _col, (_filename, _ja, _en) in zip(_mem_cols, _memory_cards):
-    with _col:
-        _path = _memory_dir / _filename
-        if _path.exists():
-            st.image(str(_path), use_container_width=True)
-            st.caption(tr(_ja, _en, lang))
-
-st.caption(tr("※ 写真はFlightSmart用に制作したイメージです。実際のフライト情報ではありません。", "Images are original FlightSmart visuals for atmosphere only; they are not flight data.", lang))
+# Step 25: single Mt. Fuji + cherry blossom hero replaces the Step 24 memory gallery.
 
 AIRPORTS=airport_options()
 
