@@ -107,6 +107,10 @@ class LiveItineraryFacts:
     return_summary: str | None
     outbound_international_carrier: str | None
     return_international_carrier: str | None
+    outbound_international_carrier_code: str | None
+    outbound_international_carrier_name: str | None
+    return_international_carrier_code: str | None
+    return_international_carrier_name: str | None
 
     def to_dict(self): return asdict(self)
 
@@ -154,7 +158,7 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
     out_summary=_seg_summary(outbound)
     ret_summary=_seg_summary(inbound) if inbound else None
 
-    def international_carrier_for_slice(sl):
+    def international_carrier_details_for_slice(sl):
         if not sl:
             return None
         segs = sl.get("segments") or []
@@ -169,10 +173,14 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
         if not chosen:
             return None
         code, name = _carrier(chosen.get("operating_carrier"))
-        return f"{name} ({code})" if name and code else (name or code)
+        label = f"{name} ({code})" if name and code else (name or code)
+        return code, name, label
 
-    out_intl_carrier = international_carrier_for_slice(outbound)
-    ret_intl_carrier = international_carrier_for_slice(inbound) if inbound else None
+    out_intl_code, out_intl_name, out_intl_carrier = international_carrier_details_for_slice(outbound)
+    if inbound:
+        ret_intl_code, ret_intl_name, ret_intl_carrier = international_carrier_details_for_slice(inbound)
+    else:
+        ret_intl_code, ret_intl_name, ret_intl_carrier = None, None, None
     combined = f"OUT: {out_summary}" + (f" || RETURN: {ret_summary}" if ret_summary else "")
     return LiveItineraryFacts(
         offer_id=offer.get("id"), expires_at=expires, offer_minutes_remaining=remaining,
@@ -189,6 +197,8 @@ def parse_offer(offer: dict[str, Any]) -> LiveItineraryFacts:
         international_departure_at=intl_seg.get("departing_at"),international_arrival_at=intl_seg.get("arriving_at"),
         connection_minutes=layovers,segment_summary=combined,outbound_summary=out_summary,return_summary=ret_summary,
         outbound_international_carrier=out_intl_carrier,return_international_carrier=ret_intl_carrier,
+        outbound_international_carrier_code=out_intl_code,outbound_international_carrier_name=out_intl_name,
+        return_international_carrier_code=ret_intl_code,return_international_carrier_name=ret_intl_name,
     )
 
 

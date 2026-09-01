@@ -520,7 +520,17 @@ if isinstance(ranked,pd.DataFrame) and not ranked.empty:
     with st.expander(tr("📊 おすすめの根拠：BTSの過去実績を見る","📊 Why recommended: see BTS historical evidence",lang),expanded=False):
         show_historical_evidence(best,lang)
     with st.expander(tr("検索で返された航空会社を確認","See airlines returned in this search",lang)):
-        st.write(coverage.get("operating_counts",{}))
+        st.caption(tr("日米区間を実際に運航する航空会社を往路・復路の両方から確認します。","Checks the operating carrier on the transpacific segment in both directions.",lang))
+        st.write(coverage.get("transpacific_counts",{}) or coverage.get("operating_counts",{}))
+        jp_status=coverage.get("japanese_status",{})
+        if jp_status:
+            labels=[]
+            for code in ("NH","JL","ZG"):
+                item=jp_status.get(code,{})
+                mark="✅" if item.get("present") else "—"
+                labels.append(f"{mark} {item.get('label',code)} ({code})")
+            st.markdown(tr("**今回の検索で返された日本系航空会社:** ","**Japanese carriers returned in this search:** ",lang)+" · ".join(labels))
+            st.caption(tr("— はDuffelアカウントで利用不可という意味ではなく、この検索結果にその航空会社の運航区間が含まれなかったことだけを示します。","A dash does not mean the airline is unavailable in your Duffel account; it only means no operating segment from that carrier appeared in this search result.",lang))
 else:
     st.markdown('<div class="fs-section-title">FlightSmartでできること</div>',unsafe_allow_html=True)
     a,b,c=st.columns(3)
