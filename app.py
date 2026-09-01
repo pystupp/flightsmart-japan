@@ -370,6 +370,8 @@ def result_card(row: pd.Series, lang: str, is_top: bool=False) -> None:
             else:
                 st.caption(route_note)
 
+        c1,c2,c3,c4=st.columns(4)
+        c1.metric(tr("料金","Price",lang),money(row.get("total_currency"),row.get("total_amount")))
         c2.metric(tr("合計乗り継ぎ","Total connections",lang),int(row.get("stop_count",0)))
         c3.metric(tr("合計飛行旅程時間","Total itinerary duration",lang),duration_label(row.get("total_duration_min"),lang))
         c4.metric(tr("BTSデータ信頼度","BTS evidence confidence",lang),confidence_label(row.get("historical_data_confidence"),lang))
@@ -418,6 +420,28 @@ st.markdown(f"""
   )}
 </div>
 """, unsafe_allow_html=True)
+
+# Step 24: Japan-memory visual strip. Original imagery created for FlightSmart.
+st.markdown('<div class="fs-section-title">🌸 '+tr("日本を思い出す景色", "A little piece of Japan", lang)+'</div>', unsafe_allow_html=True)
+st.markdown('<div class="fs-section-sub">'+tr("帰る前から、少しだけ日本を感じられるように。季節や地域の景色を眺めながら、旅のイメージを膨らませてください。", "A few familiar scenes to bring the feeling of Japan into your trip planning.", lang)+'</div>', unsafe_allow_html=True)
+_memory_dir = Path(__file__).parent / "assets" / "japan_memories"
+_memory_cards = [
+    ("osaka_sakura.png", "大阪・桜", "Osaka · Sakura"),
+    ("kyoto_bamboo.png", "京都・竹林", "Kyoto · Bamboo grove"),
+    ("fuji_autumn.png", "富士山・紅葉", "Mt. Fuji · Autumn"),
+    ("miyajima_torii.png", "宮島・大鳥居", "Miyajima · Torii"),
+    ("shirakawago_snow.png", "白川郷・雪景色", "Shirakawa-go · Snow"),
+]
+_mem_cols = st.columns(5)
+for _col, (_filename, _ja, _en) in zip(_mem_cols, _memory_cards):
+    with _col:
+        _path = _memory_dir / _filename
+        if _path.exists():
+            st.image(str(_path), use_container_width=True)
+            st.caption(tr(_ja, _en, lang))
+
+st.caption(tr("※ 写真はFlightSmart用に制作したイメージです。実際のフライト情報ではありません。", "Images are original FlightSmart visuals for atmosphere only; they are not flight data.", lang))
+
 AIRPORTS=airport_options()
 
 # Main search bar: Japanese travel-site style, no permanent sidebar.

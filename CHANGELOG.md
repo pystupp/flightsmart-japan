@@ -74,3 +74,7 @@
 - Added outbound/return route reconstruction and layover display.
 - Added prominent Japan international segment labeling.
 - Preserved Step 22 route guardrails and evidence-aware scoring.
+
+## Step 24 — Japan Memory Visual Layer
+- Added original Japan-inspired imagery to make the app feel warmer and more familiar to travelers returning to Japan.
+- Added bilingual visual captions and imagery disclosure.
